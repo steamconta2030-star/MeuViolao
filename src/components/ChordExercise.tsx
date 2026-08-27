@@ -135,6 +135,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             <div className="mt-3 flex gap-1">{practiceRounds.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= round ? 'bg-violet-300' : 'bg-white/10'}`} />)}</div>
 
             <div className="mt-7 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-6 text-center">
+              <p className="mb-3 text-[10px] text-slate-400"><strong className="text-slate-200">1</strong> indicador · <strong className="text-slate-200">2</strong> médio · <strong className="text-slate-200">3</strong> anelar · <strong className="text-slate-200">4</strong> mínimo</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {practiceRounds[round].chords.map((chord) => <ChordDiagram key={chord} chord={chord} />)}
               </div>

@@ -28,30 +28,30 @@ export function ChordDiagram({ chord }: { chord: ChordName }) {
   const shape = shapes[chord]
 
   return (
-    <figure className="w-[86px] shrink-0 rounded-2xl border border-white/10 bg-[#0c182b] px-2 pb-2 pt-1">
+    <figure className="w-[108px] shrink-0 rounded-2xl border border-white/10 bg-[#0c182b] px-2 pb-2 pt-1">
       <figcaption className="text-center font-display text-xl font-semibold text-white">{chord}</figcaption>
-      <svg viewBox="0 0 100 118" role="img" aria-label={`Diagrama do acorde ${chord}`} className="mt-1 w-full">
+      <svg viewBox="0 0 130 138" role="img" aria-label={`Diagrama do acorde ${chord}`} className="mt-1 w-full">
         {shape.strings.map((status, index) => (
-          <text key={`status-${index}`} x={20 + index * 12} y="12" textAnchor="middle" className="fill-slate-400 text-[10px] font-semibold">
+          <text key={`status-${index}`} x={30 + index * 14} y="13" textAnchor="middle" className="fill-slate-300 text-[11px] font-semibold">
             {status === 'open' ? '○' : status === 'mute' ? '×' : ''}
           </text>
         ))}
 
         {[0, 1, 2, 3, 4].map((fret) => (
-          <line key={`fret-${fret}`} x1="20" x2="80" y1={22 + fret * 19} y2={22 + fret * 19} stroke={fret === 0 ? '#cbd5e1' : '#475569'} strokeWidth={fret === 0 ? 4 : 1.5} />
+          <line key={`fret-${fret}`} x1="30" x2="100" y1={24 + fret * 22} y2={24 + fret * 22} stroke={fret === 0 ? '#e2e8f0' : '#64748b'} strokeWidth={fret === 0 ? 4 : 1.5} />
         ))}
         {[0, 1, 2, 3, 4, 5].map((string) => (
-          <line key={`string-${string}`} x1={20 + string * 12} x2={20 + string * 12} y1="22" y2="98" stroke="#64748b" strokeWidth={1 + (5 - string) * 0.12} />
+          <line key={`string-${string}`} x1={30 + string * 14} x2={30 + string * 14} y1="24" y2="112" stroke="#94a3b8" strokeWidth={1 + (5 - string) * 0.12} />
         ))}
 
         {shape.fingers.map((position) => (
           <g key={`${position.string}-${position.fret}`}>
-            <circle cx={20 + position.string * 12} cy={22 + (position.fret - 0.5) * 19} r="7.5" fill="#67e8f9" />
-            <text x={20 + position.string * 12} y={25 + (position.fret - 0.5) * 19} textAnchor="middle" className="fill-[#07101f] text-[8px] font-bold">{position.finger}</text>
+            <circle cx={30 + position.string * 14} cy={24 + (position.fret - 0.5) * 22} r="6.5" fill="#67e8f9" stroke="#cffafe" strokeWidth="1" />
+            <text x={30 + position.string * 14} y={27 + (position.fret - 0.5) * 22} textAnchor="middle" className="fill-[#07101f] text-[9px] font-bold">{position.finger}</text>
           </g>
         ))}
 
-        <text x="50" y="112" textAnchor="middle" className="fill-slate-500 text-[7px]">E A D G B e</text>
+        <text x="65" y="131" textAnchor="middle" className="fill-slate-400 text-[8px]">E  A  D  G  B  e</text>
       </svg>
     </figure>
   )
