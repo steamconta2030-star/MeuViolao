@@ -1,12 +1,7 @@
-import { Flame, Guitar, LogOut, Sparkles, Target } from 'lucide-react'
+import { Guitar, LogOut } from 'lucide-react'
 import { AuthPanel } from './components/AuthPanel'
+import { Dashboard } from './components/Dashboard'
 import { useAuth } from './hooks/use-auth'
-
-const foundation = [
-  { icon: Target, title: 'Meta diária', text: 'Uma rotina curta e clara para praticar todos os dias.' },
-  { icon: Sparkles, title: 'XP e níveis', text: 'Progresso simples, construído em pequenas ondas.' },
-  { icon: Flame, title: 'Consistência', text: 'Sequência de dias para ajudar a manter o hábito.' },
-]
 
 function App() {
   const { session, loading, signOut } = useAuth()
@@ -51,30 +46,7 @@ function App() {
 
           {loading ? (
             <div className="grid min-h-96 place-items-center text-sm text-slate-400">Verificando sua sessão…</div>
-          ) : session ? <div className="rounded-[2rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/20 backdrop-blur sm:p-6">
-            <div className="rounded-3xl border border-white/10 bg-[#0a1528] p-5 sm:p-7">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-400">Primeira onda</p>
-                  <h2 className="mt-2 font-display text-2xl font-semibold">Base tecnológica</h2>
-                </div>
-                <span className="text-3xl">🎸</span>
-              </div>
-              <div className="mt-7 space-y-3">
-                {foundation.map(({ icon: Icon, title, text }) => (
-                  <article key={title} className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
-                      <Icon className="size-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold">{title}</h3>
-                      <p className="mt-1 text-xs leading-5 text-slate-400">{text}</p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div> : <AuthPanel />}
+          ) : session ? <Dashboard user={session.user} /> : <AuthPanel />}
         </section>
 
         <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">
