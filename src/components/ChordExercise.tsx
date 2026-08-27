@@ -337,6 +337,11 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               <div className={`mx-auto mt-4 grid size-20 place-items-center rounded-full border-4 font-display font-semibold sm:mt-6 sm:size-24 ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
                 {completedCycles >= practiceRounds[round].targetCycles ? <Check className="size-9" /> : <span><strong className="text-3xl">{completedCycles}</strong><small className="block font-sans text-[10px]">de {practiceRounds[round].targetCycles} voltas</small></span>}
               </div>
+              {completedCycles >= practiceRounds[round].targetCycles && (
+                <button type="button" disabled={saving} onClick={() => void finishRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-lg shadow-emerald-950/30 disabled:opacity-50">
+                  <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
+                </button>
+              )}
             </div>
 
             {completedCycles < practiceRounds[round].targetCycles ? (
@@ -364,11 +369,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                   {running ? <><Clock3 className="size-4" /> Volta {Math.min(completedCycles + 1, practiceRounds[round].targetCycles)} de {practiceRounds[round].targetCycles} · {bpm} BPM</> : <><Play className="size-4" /> Iniciar treino de {practiceRounds[round].targetCycles} voltas</>}
                 </button>
               </>
-            ) : (
-                <button type="button" disabled={saving} onClick={() => void finishRound()} className="fixed bottom-3 left-1/2 z-50 inline-flex w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-2xl shadow-black/70 disabled:opacity-50 lg:static lg:mt-5 lg:w-full lg:max-w-none lg:translate-x-0">
-                <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
-              </button>
-            )}
+            ) : null}
             {saving && <p className="mt-3 text-center text-xs text-cyan-300">Salvando sua prática…</p>}
           </div>
         )}
