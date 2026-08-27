@@ -55,7 +55,7 @@ const analyzeEm = (spectrum: Uint8Array, sampleRate: number, fftSize: number) =>
   const presentNotes = emNotes.filter((note) => chroma[note] / total >= 0.04).length
   const confidence = Math.max(0, Math.min(100, Math.round(((targetShare - 0.2) / 0.25) * 100)))
 
-  return { matched: targetShare >= 0.34 && presentNotes >= 2, confidence }
+  return { matched: targetShare >= 0.29 && presentNotes >= 2, confidence }
 }
 
 export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
