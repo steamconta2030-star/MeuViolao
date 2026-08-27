@@ -1,19 +1,39 @@
 import { Check, Clock3, Heart, Play, RotateCcw, Star, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-const questions = [
-  { prompt: 'O que significa a cifra Em?', options: ['Mi menor', 'Mi maior', 'Ré menor'], answer: 'Mi menor' },
-  { prompt: 'Qual destes é um acorde maior?', options: ['Am', 'Em', 'G'], answer: 'G' },
-  { prompt: 'Qual sequência pertence à primeira etapa?', options: ['Em · G · C · D', 'F#m · C# · B', 'Bb · Eb · F'], answer: 'Em · G · C · D' },
-]
+const exercises = {
+  'first-chords': {
+    title: 'Primeiros acordes',
+    questions: [
+      { prompt: 'O que significa a cifra Em?', options: ['Mi menor', 'Mi maior', 'Ré menor'], answer: 'Mi menor' },
+      { prompt: 'Qual destes é um acorde maior?', options: ['Am', 'Em', 'G'], answer: 'G' },
+      { prompt: 'Qual sequência pertence à primeira etapa?', options: ['Em · G · C · D', 'F#m · C# · B', 'Bb · Eb · F'], answer: 'Em · G · C · D' },
+    ],
+    rounds: [
+      { chord: 'Em', title: 'Monte o Mi menor', instruction: 'Forme o acorde Em e toque quatro batidas lentas.' },
+      { chord: 'Em → G', title: 'Faça a primeira troca', instruction: 'Alterne entre Em e G sem parar o movimento.' },
+      { chord: 'Em → G → C → D', title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
+    ],
+  },
+  'clean-changes': {
+    title: 'Trocas limpas',
+    questions: [
+      { prompt: 'O que deve continuar constante durante a troca?', options: ['O ritmo', 'A força da mão', 'O volume'], answer: 'O ritmo' },
+      { prompt: 'Se a troca ainda falha, qual é a melhor decisão?', options: ['Tocar mais forte', 'Diminuir a velocidade', 'Pular o acorde'], answer: 'Diminuir a velocidade' },
+      { prompt: 'Qual movimento ajuda a troca ficar limpa?', options: ['Levantar os dedos o mínimo possível', 'Afastar toda a mão', 'Parar por vários segundos'], answer: 'Levantar os dedos o mínimo possível' },
+    ],
+    rounds: [
+      { chord: 'Em ↔ G', title: 'Troca 1', instruction: 'Alterne Em e G devagar, sem interromper a contagem.' },
+      { chord: 'C ↔ D', title: 'Troca 2', instruction: 'Alterne C e D mantendo os dedos próximos das cordas.' },
+      { chord: 'Em → G → C → D', title: 'Circuito completo', instruction: 'Faça a sequência completa e mantenha cada acorde por quatro tempos.' },
+    ],
+  },
+} as const
 
-const practiceRounds = [
-  { chord: 'Em', title: 'Monte o Mi menor', instruction: 'Forme o acorde Em e toque quatro batidas lentas.' },
-  { chord: 'Em → G', title: 'Faça a primeira troca', instruction: 'Alterne entre Em e G sem parar o movimento.' },
-  { chord: 'Em → G → C → D', title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
-]
+type ExerciseId = keyof typeof exercises
 
-export function ChordExercise({ onClose, onComplete }: { onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
+export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
+  const { title, questions, rounds: practiceRounds } = exercises[exerciseId]
   const [question, setQuestion] = useState(0)
   const [lives, setLives] = useState(3)
   const [wrongAnswer, setWrongAnswer] = useState<string | null>(null)
@@ -84,10 +104,10 @@ export function ChordExercise({ onClose, onComplete }: { onClose: () => void; on
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Exercício Primeiros acordes">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Exercício ${title}`}>
       <div className="w-full max-w-lg rounded-[2rem] border border-cyan-300/20 bg-[#0a1528] p-5 shadow-2xl shadow-black/60 sm:p-7">
         <div className="flex items-center justify-between">
-          <div><p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-300">Primeiros acordes</p><p className="mt-1 text-xs text-slate-500">{phase === 'quiz' ? 'Parte 1 · Perguntas' : 'Parte 2 · Prática no violão'}</p></div>
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-300">{title}</p><p className="mt-1 text-xs text-slate-500">{phase === 'quiz' ? 'Parte 1 · Perguntas' : 'Parte 2 · Prática no violão'}</p></div>
           <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full border border-white/10 text-slate-400 hover:text-white" aria-label="Fechar"><X className="size-4" /></button>
         </div>
 

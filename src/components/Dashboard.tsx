@@ -8,7 +8,7 @@ import { ChordExercise } from './ChordExercise'
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
-  const [exerciseOpen, setExerciseOpen] = useState(false)
+  const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | null>(null)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -45,8 +45,8 @@ export function Dashboard({ user }: { user: User }) {
     feedbackTimer.current = setTimeout(() => setFeedback(null), 2800)
   }
 
-  const handleExerciseComplete = async (stars: number) => {
-    const progressSaved = await saveExerciseProgress('first-chords', stars)
+  const handleExerciseComplete = async (exerciseId: 'first-chords' | 'clean-changes', stars: number) => {
+    const progressSaved = await saveExerciseProgress(exerciseId, stars)
     if (!progressSaved) return false
     const reward = await addPractice(5, 'exercise')
     if (!reward) return false
@@ -148,7 +148,9 @@ export function Dashboard({ user }: { user: User }) {
             ))}
           </div>
         </div>
-        <Journey progress={exerciseProgress} onStart={() => setExerciseOpen(true)} />
+        <Journey progress={exerciseProgress} onStart={(exerciseId) => {
+          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes') setActiveExercise(exerciseId)
+        }} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
       {feedback && (
@@ -159,7 +161,7 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
       )}
-      {exerciseOpen && <ChordExercise onClose={() => setExerciseOpen(false)} onComplete={handleExerciseComplete} />}
+      {activeExercise && <ChordExercise exerciseId={activeExercise} onClose={() => setActiveExercise(null)} onComplete={(stars) => handleExerciseComplete(activeExercise, stars)} />}
     </div>
   )
 }
