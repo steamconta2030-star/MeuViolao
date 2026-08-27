@@ -31,11 +31,13 @@ export function Dashboard({ user }: { user: User }) {
           </article>
           <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <Sparkles className="size-4 text-amber-300" />
-            <p className="mt-3 text-2xl font-semibold">{profile?.xp ?? 0}<span className="ml-1 text-xs font-normal text-slate-400">XP</span></p>
+            <p className="mt-3 text-2xl font-semibold">{summary.totalXp}<span className="ml-1 text-xs font-normal text-slate-400">XP</span></p>
+            <p className="mt-1 text-[10px] text-slate-500">2 XP por minuto</p>
           </article>
           <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <Flame className="size-4 text-orange-300" />
-            <p className="mt-3 text-2xl font-semibold">0<span className="ml-1 text-xs font-normal text-slate-400">dias</span></p>
+            <p className="mt-3 text-2xl font-semibold">{summary.streak}<span className="ml-1 text-xs font-normal text-slate-400">{summary.streak === 1 ? 'dia' : 'dias'}</span></p>
+            <p className="mt-1 text-[10px] text-slate-500">sequência de prática</p>
           </article>
         </div>
 
