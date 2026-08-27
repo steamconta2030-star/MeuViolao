@@ -21,7 +21,7 @@ function App() {
             </div>
           </div>
           <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
-            Fundação pronta
+            XP em progresso
           </span>
         </header>
 
