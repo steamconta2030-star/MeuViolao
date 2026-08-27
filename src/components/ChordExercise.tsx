@@ -1,5 +1,6 @@
 import { Check, Clock3, Heart, Play, RotateCcw, Star, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { ChordDiagram } from './ChordDiagram'
 
 const exercises = {
   'first-chords': {
@@ -10,9 +11,9 @@ const exercises = {
       { prompt: 'Qual sequência pertence à primeira etapa?', options: ['Em · G · C · D', 'F#m · C# · B', 'Bb · Eb · F'], answer: 'Em · G · C · D' },
     ],
     rounds: [
-      { chord: 'Em', title: 'Monte o Mi menor', instruction: 'Forme o acorde Em e toque quatro batidas lentas.' },
-      { chord: 'Em → G', title: 'Faça a primeira troca', instruction: 'Alterne entre Em e G sem parar o movimento.' },
-      { chord: 'Em → G → C → D', title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
+      { chords: ['Em'], title: 'Monte o Mi menor', instruction: 'Forme o acorde Em e toque quatro batidas lentas.' },
+      { chords: ['Em', 'G'], title: 'Faça a primeira troca', instruction: 'Alterne entre Em e G sem parar o movimento.' },
+      { chords: ['Em', 'G', 'C', 'D'], title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
     ],
   },
   'clean-changes': {
@@ -23,9 +24,9 @@ const exercises = {
       { prompt: 'Qual movimento ajuda a troca ficar limpa?', options: ['Levantar os dedos o mínimo possível', 'Afastar toda a mão', 'Parar por vários segundos'], answer: 'Levantar os dedos o mínimo possível' },
     ],
     rounds: [
-      { chord: 'Em ↔ G', title: 'Troca 1', instruction: 'Alterne Em e G devagar, sem interromper a contagem.' },
-      { chord: 'C ↔ D', title: 'Troca 2', instruction: 'Alterne C e D mantendo os dedos próximos das cordas.' },
-      { chord: 'Em → G → C → D', title: 'Circuito completo', instruction: 'Faça a sequência completa e mantenha cada acorde por quatro tempos.' },
+      { chords: ['Em', 'G'], title: 'Troca 1', instruction: 'Alterne Em e G devagar, sem interromper a contagem.' },
+      { chords: ['C', 'D'], title: 'Troca 2', instruction: 'Alterne C e D mantendo os dedos próximos das cordas.' },
+      { chords: ['Em', 'G', 'C', 'D'], title: 'Circuito completo', instruction: 'Faça a sequência completa e mantenha cada acorde por quatro tempos.' },
     ],
   },
 } as const
@@ -134,7 +135,9 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             <div className="mt-3 flex gap-1">{practiceRounds.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= round ? 'bg-violet-300' : 'bg-white/10'}`} />)}</div>
 
             <div className="mt-7 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-6 text-center">
-              <p className="font-display text-3xl font-semibold text-violet-200">{practiceRounds[round].chord}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {practiceRounds[round].chords.map((chord) => <ChordDiagram key={chord} chord={chord} />)}
+              </div>
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
               <div className={`mx-auto mt-6 grid size-24 place-items-center rounded-full border-4 font-display text-3xl font-semibold ${seconds === 0 ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
