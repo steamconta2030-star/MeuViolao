@@ -11,9 +11,9 @@ const exercises = {
       { prompt: 'Qual sequência pertence à primeira etapa?', options: ['Em · G · C · D', 'F#m · C# · B', 'Bb · Eb · F'], answer: 'Em · G · C · D' },
     ],
     rounds: [
-      { chords: ['Em'], title: 'Monte o Mi menor', instruction: 'Forme o acorde Em e toque quatro batidas lentas.' },
-      { chords: ['Em', 'G'], title: 'Faça a primeira troca', instruction: 'Alterne entre Em e G sem parar o movimento.' },
-      { chords: ['Em', 'G', 'C', 'D'], title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
+      { chords: ['Em'], targetCycles: 6, title: 'Monte o Mi menor', instruction: 'Faça uma batida para baixo em cada tempo. Mantenha o Em por seis compassos.' },
+      { chords: ['Em', 'G'], targetCycles: 4, title: 'Faça a primeira troca', instruction: 'Toque quatro tempos em Em e quatro em G. Complete quatro voltas.' },
+      { chords: ['Em', 'G', 'C', 'D'], targetCycles: 4, title: 'Complete a sequência', instruction: 'Faça uma batida para baixo em cada tempo e complete quatro voltas em Em, G, C e D.' },
     ],
   },
   'clean-changes': {
@@ -24,9 +24,9 @@ const exercises = {
       { prompt: 'Qual movimento ajuda a troca ficar limpa?', options: ['Levantar os dedos o mínimo possível', 'Afastar toda a mão', 'Parar por vários segundos'], answer: 'Levantar os dedos o mínimo possível' },
     ],
     rounds: [
-      { chords: ['Em', 'G'], title: 'Troca 1', instruction: 'Alterne Em e G devagar, sem interromper a contagem.' },
-      { chords: ['C', 'D'], title: 'Troca 2', instruction: 'Alterne C e D mantendo os dedos próximos das cordas.' },
-      { chords: ['Em', 'G', 'C', 'D'], title: 'Circuito completo', instruction: 'Faça a sequência completa e mantenha cada acorde por quatro tempos.' },
+      { chords: ['Em', 'G'], targetCycles: 4, title: 'Troca 1', instruction: 'Alterne Em e G, com uma batida para baixo por tempo. Complete quatro voltas.' },
+      { chords: ['C', 'D'], targetCycles: 4, title: 'Troca 2', instruction: 'Alterne C e D mantendo os dedos próximos das cordas. Complete quatro voltas.' },
+      { chords: ['Em', 'G', 'C', 'D'], targetCycles: 4, title: 'Circuito completo', instruction: 'Mantenha cada acorde por quatro tempos e complete quatro voltas.' },
     ],
   },
 } as const
@@ -43,16 +43,18 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const [saving, setSaving] = useState(false)
   const [phase, setPhase] = useState<'quiz' | 'practice'>('quiz')
   const [round, setRound] = useState(0)
-  const [seconds, setSeconds] = useState(20)
   const [running, setRunning] = useState(false)
   const [bpm, setBpm] = useState(60)
   const [beat, setBeat] = useState(0)
   const [activeChord, setActiveChord] = useState(0)
+  const [completedCycles, setCompletedCycles] = useState(0)
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'>('idle')
   const [micLevel, setMicLevel] = useState(0)
   const audioContextRef = useRef<AudioContext | null>(null)
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const beatRef = useRef(0)
+  const activeChordRef = useRef(0)
+  const completedCyclesRef = useRef(0)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const meterFrameRef = useRef<number | null>(null)
 
@@ -73,20 +75,42 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const pulse = () => {
     const previousBeat = beatRef.current
     const nextBeat = (beatRef.current % 4) + 1
+
+    if (nextBeat === 1 && previousBeat !== 0) {
+      const nextChord = (activeChordRef.current + 1) % practiceRounds[round].chords.length
+      activeChordRef.current = nextChord
+      setActiveChord(nextChord)
+
+      if (nextChord === 0) {
+        const nextCycle = completedCyclesRef.current + 1
+        completedCyclesRef.current = nextCycle
+        setCompletedCycles(nextCycle)
+        if (nextCycle >= practiceRounds[round].targetCycles) {
+          if (metronomeRef.current) {
+            clearInterval(metronomeRef.current)
+            metronomeRef.current = null
+          }
+          setRunning(false)
+          setBeat(4)
+          return
+        }
+      }
+    }
+
     beatRef.current = nextBeat
     setBeat(nextBeat)
     playClick(nextBeat === 1)
-    if (nextBeat === 1 && previousBeat !== 0) {
-      setActiveChord((current) => (current + 1) % practiceRounds[round].chords.length)
-    }
   }
 
   const startRound = async () => {
     if (!audioContextRef.current) audioContextRef.current = new AudioContext()
     await audioContextRef.current.resume()
     beatRef.current = 0
+    activeChordRef.current = 0
+    completedCyclesRef.current = 0
     setBeat(0)
     setActiveChord(0)
+    setCompletedCycles(0)
     setRunning(true)
     pulse()
     metronomeRef.current = setInterval(pulse, 60000 / bpm)
@@ -133,20 +157,6 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   }
 
   useEffect(() => {
-    if (!running) return
-    const timer = setInterval(() => {
-      setSeconds((current) => {
-        if (current <= 1) {
-          setRunning(false)
-          return 0
-        }
-        return current - 1
-      })
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [running])
-
-  useEffect(() => {
     if (!running && metronomeRef.current) {
       clearInterval(metronomeRef.current)
       metronomeRef.current = null
@@ -167,10 +177,13 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setFailed(false)
     setPhase('quiz')
     setRound(0)
-    setSeconds(20)
     setRunning(false)
     setBeat(0)
     setActiveChord(0)
+    setCompletedCycles(0)
+    beatRef.current = 0
+    activeChordRef.current = 0
+    completedCyclesRef.current = 0
   }
 
   const answer = async (option: string) => {
@@ -193,12 +206,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   }
 
   const finishRound = async () => {
-    if (seconds > 0 || saving) return
+    if (completedCycles < practiceRounds[round].targetCycles || saving) return
     if (round < practiceRounds.length - 1) {
       setRound((current) => current + 1)
-      setSeconds(20)
       setBeat(0)
       setActiveChord(0)
+      setCompletedCycles(0)
+      beatRef.current = 0
+      activeChordRef.current = 0
+      completedCyclesRef.current = 0
       return
     }
 
@@ -246,14 +262,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
                 {[1, 2, 3, 4].map((count) => <span key={count} className={`grid size-8 place-items-center rounded-full border text-xs font-bold transition ${beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{count}</span>)}
               </div>
+              <p className="mt-3 text-xs font-semibold text-cyan-200">↓ Uma batida para baixo em cada número</p>
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
-              <div className={`mx-auto mt-6 grid size-24 place-items-center rounded-full border-4 font-display text-3xl font-semibold ${seconds === 0 ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
-                {seconds === 0 ? <Check className="size-9" /> : seconds}
+              <div className={`mx-auto mt-6 grid size-24 place-items-center rounded-full border-4 font-display font-semibold ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
+                {completedCycles >= practiceRounds[round].targetCycles ? <Check className="size-9" /> : <span><strong className="text-3xl">{completedCycles}</strong><small className="block font-sans text-[10px]">de {practiceRounds[round].targetCycles} voltas</small></span>}
               </div>
             </div>
 
-            {seconds > 0 ? (
+            {completedCycles < practiceRounds[round].targetCycles ? (
               <>
                 <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
                   <div className="flex items-center justify-between gap-3">
@@ -275,7 +292,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                   {[40, 60, 80].map((value) => <button key={value} type="button" disabled={running} onClick={() => setBpm(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${bpm === value ? 'border-violet-300/50 bg-violet-300/15 text-violet-200' : 'border-white/10 text-slate-400'} disabled:opacity-50`}>{value} BPM</button>)}
                 </div>
                 <button type="button" disabled={running} onClick={() => void startRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-[#07101f] disabled:bg-cyan-300/40">
-                  {running ? <><Clock3 className="size-4" /> Toque por {seconds}s · {bpm} BPM</> : <><Play className="size-4" /> Iniciar rodada de 20s</>}
+                  {running ? <><Clock3 className="size-4" /> Volta {Math.min(completedCycles + 1, practiceRounds[round].targetCycles)} de {practiceRounds[round].targetCycles} · {bpm} BPM</> : <><Play className="size-4" /> Iniciar treino de {practiceRounds[round].targetCycles} voltas</>}
                 </button>
               </>
             ) : (
