@@ -65,7 +65,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const beatDetectedRef = useRef(false)
   const detectedBeatsRef = useRef(0)
   const expectedBeatsRef = useRef(0)
-  const noiseFloorRef = useRef(2)
+  const noiseFloorRef = useRef(1.5)
+  const previousGuitarEnergyRef = useRef(0)
   const bpmRef = useRef(60)
 
   const playClick = (accent: boolean) => {
@@ -147,17 +148,21 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setMicStatus('requesting')
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
       })
       if (!audioContextRef.current) audioContextRef.current = new AudioContext()
       await audioContextRef.current.resume()
 
       mediaStreamRef.current = stream
       const analyser = audioContextRef.current.createAnalyser()
-      analyser.fftSize = 1024
-      analyser.smoothingTimeConstant = 0.75
+      analyser.fftSize = 2048
+      analyser.smoothingTimeConstant = 0.35
       audioContextRef.current.createMediaStreamSource(stream).connect(analyser)
       const samples = new Uint8Array(analyser.fftSize)
+      const spectrum = new Uint8Array(analyser.frequencyBinCount)
+      const binHz = audioContextRef.current.sampleRate / analyser.fftSize
+      const guitarBandStart = Math.ceil(80 / binHz)
+      const guitarBandEnd = Math.floor(650 / binHz)
 
       const updateMeter = () => {
         analyser.getByteTimeDomainData(samples)
@@ -169,20 +174,28 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
         const rms = Math.sqrt(sum / samples.length)
         const level = Math.min(100, Math.round(rms * 420))
         setMicLevel(level)
+        analyser.getByteFrequencyData(spectrum)
+        let guitarBandSum = 0
+        for (let index = guitarBandStart; index <= guitarBandEnd; index += 1) {
+          guitarBandSum += spectrum[index]
+        }
+        const guitarEnergy = (guitarBandSum / (guitarBandEnd - guitarBandStart + 1) / 255) * 100
 
         if (!runningRef.current) {
-          noiseFloorRef.current = noiseFloorRef.current * 0.96 + level * 0.04
+          noiseFloorRef.current = noiseFloorRef.current * 0.96 + guitarEnergy * 0.04
         } else if (!beatDetectedRef.current) {
           const elapsed = performance.now() - beatStartedAtRef.current
           const detectionWindow = Math.min(800, (60000 / bpmRef.current) * 0.75)
-          const threshold = Math.max(8, noiseFloorRef.current + 7)
-          if (elapsed >= 110 && elapsed <= detectionWindow && level >= threshold) {
+          const threshold = Math.max(3.5, noiseFloorRef.current + 3)
+          const onset = guitarEnergy - previousGuitarEnergyRef.current
+          if (elapsed >= 45 && elapsed <= detectionWindow && guitarEnergy >= threshold && onset >= 1.5) {
             beatDetectedRef.current = true
             detectedBeatsRef.current += 1
             setDetectedBeats(detectedBeatsRef.current)
             setBeatHit(true)
           }
         }
+        previousGuitarEnergyRef.current = guitarEnergy
         meterFrameRef.current = requestAnimationFrame(updateMeter)
       }
 
@@ -277,8 +290,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   }
 
   return (
-    <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Exercício ${title}`}>
-      <div className="w-full max-w-lg rounded-[2rem] border border-cyan-300/20 bg-[#0a1528] p-5 shadow-2xl shadow-black/60 sm:p-7">
+    <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label={`Exercício ${title}`}>
+      <div className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.5rem] border border-cyan-300/20 bg-[#0a1528] p-4 shadow-2xl shadow-black/60 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem] sm:p-7">
         <div className="flex items-center justify-between">
           <div><p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-300">{title}</p><p className="mt-1 text-xs text-slate-500">{phase === 'quiz' ? 'Parte 1 · Perguntas' : 'Parte 2 · Prática no violão'}</p></div>
           <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full border border-white/10 text-slate-400 hover:text-white" aria-label="Fechar"><X className="size-4" /></button>
@@ -302,13 +315,13 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
         )}
 
         {!finished && !failed && phase === 'practice' && (
-          <div className="mt-6">
+          <div className="mt-4">
             <div className="flex items-center justify-between text-xs"><span className="text-slate-400">Rodada {round + 1} de {practiceRounds.length}</span><span className="flex items-center gap-1 text-rose-300"><Heart className="size-4 fill-current" /> {lives}</span></div>
             <div className="mt-3 flex gap-1">{practiceRounds.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= round ? 'bg-violet-300' : 'bg-white/10'}`} />)}</div>
 
-            <div className="mt-7 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-6 text-center">
+            <div className="mt-4 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-3 text-center sm:mt-7 sm:p-6">
               <p className="mb-3 text-[10px] text-slate-400"><strong className="text-slate-200">1</strong> indicador · <strong className="text-slate-200">2</strong> médio · <strong className="text-slate-200">3</strong> anelar · <strong className="text-slate-200">4</strong> mínimo</p>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex snap-x flex-nowrap justify-start gap-2 overflow-x-auto pb-2 sm:justify-center">
                 {practiceRounds[round].chords.map((chord, index) => <ChordDiagram key={chord} chord={chord} active={index === activeChord} />)}
               </div>
               <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
@@ -321,14 +334,14 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
-              <div className={`mx-auto mt-6 grid size-24 place-items-center rounded-full border-4 font-display font-semibold ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
+              <div className={`mx-auto mt-4 grid size-20 place-items-center rounded-full border-4 font-display font-semibold sm:mt-6 sm:size-24 ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
                 {completedCycles >= practiceRounds[round].targetCycles ? <Check className="size-9" /> : <span><strong className="text-3xl">{completedCycles}</strong><small className="block font-sans text-[10px]">de {practiceRounds[round].targetCycles} voltas</small></span>}
               </div>
             </div>
 
             {completedCycles < practiceRounds[round].targetCycles ? (
               <>
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+                <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.025] p-2.5 sm:mt-4 sm:p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       {micStatus === 'active' ? <Mic className="size-4 shrink-0 text-emerald-300" /> : <MicOff className="size-4 shrink-0 text-slate-500" />}
@@ -343,7 +356,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                   {micStatus === 'denied' && <p className="mt-2 text-left text-[10px] text-rose-300">Permissão negada. Libere o microfone nas configurações do navegador e tente novamente.</p>}
                   {micStatus === 'unsupported' && <p className="mt-2 text-left text-[10px] text-amber-300">Este navegador não disponibilizou acesso ao microfone.</p>}
                 </div>
-                <div className="mt-4 flex items-center justify-center gap-2">
+                <div className="mt-2.5 flex items-center justify-center gap-2 sm:mt-4">
                   <span className="mr-1 text-xs text-slate-500">Velocidade</span>
                   {[40, 60, 80].map((value) => <button key={value} type="button" disabled={running} onClick={() => setBpm(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${bpm === value ? 'border-violet-300/50 bg-violet-300/15 text-violet-200' : 'border-white/10 text-slate-400'} disabled:opacity-50`}>{value} BPM</button>)}
                 </div>
@@ -352,7 +365,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                 </button>
               </>
             ) : (
-              <button type="button" disabled={saving} onClick={() => void finishRound()} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] disabled:opacity-50">
+                <button type="button" disabled={saving} onClick={() => void finishRound()} className="fixed bottom-3 left-1/2 z-50 inline-flex w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-2xl shadow-black/70 disabled:opacity-50 sm:static sm:mt-5 sm:w-full sm:max-w-none sm:translate-x-0">
                 <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
               </button>
             )}
