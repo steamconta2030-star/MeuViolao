@@ -50,6 +50,9 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const [completedCycles, setCompletedCycles] = useState(0)
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'>('idle')
   const [micLevel, setMicLevel] = useState(0)
+  const [detectedBeats, setDetectedBeats] = useState(0)
+  const [expectedBeats, setExpectedBeats] = useState(0)
+  const [beatHit, setBeatHit] = useState(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const beatRef = useRef(0)
@@ -57,6 +60,13 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const completedCyclesRef = useRef(0)
   const mediaStreamRef = useRef<MediaStream | null>(null)
   const meterFrameRef = useRef<number | null>(null)
+  const runningRef = useRef(false)
+  const beatStartedAtRef = useRef(0)
+  const beatDetectedRef = useRef(false)
+  const detectedBeatsRef = useRef(0)
+  const expectedBeatsRef = useRef(0)
+  const noiseFloorRef = useRef(2)
+  const bpmRef = useRef(60)
 
   const playClick = (accent: boolean) => {
     const context = audioContextRef.current
@@ -90,6 +100,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             clearInterval(metronomeRef.current)
             metronomeRef.current = null
           }
+          runningRef.current = false
           setRunning(false)
           setBeat(4)
           return
@@ -98,6 +109,11 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     }
 
     beatRef.current = nextBeat
+    beatStartedAtRef.current = performance.now()
+    beatDetectedRef.current = false
+    expectedBeatsRef.current += 1
+    setExpectedBeats(expectedBeatsRef.current)
+    setBeatHit(false)
     setBeat(nextBeat)
     playClick(nextBeat === 1)
   }
@@ -108,9 +124,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     beatRef.current = 0
     activeChordRef.current = 0
     completedCyclesRef.current = 0
+    detectedBeatsRef.current = 0
+    expectedBeatsRef.current = 0
+    runningRef.current = true
     setBeat(0)
     setActiveChord(0)
     setCompletedCycles(0)
+    setDetectedBeats(0)
+    setExpectedBeats(0)
+    setBeatHit(false)
     setRunning(true)
     pulse()
     metronomeRef.current = setInterval(pulse, 60000 / bpm)
@@ -145,7 +167,22 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
           sum += centered * centered
         }
         const rms = Math.sqrt(sum / samples.length)
-        setMicLevel(Math.min(100, Math.round(rms * 420)))
+        const level = Math.min(100, Math.round(rms * 420))
+        setMicLevel(level)
+
+        if (!runningRef.current) {
+          noiseFloorRef.current = noiseFloorRef.current * 0.96 + level * 0.04
+        } else if (!beatDetectedRef.current) {
+          const elapsed = performance.now() - beatStartedAtRef.current
+          const detectionWindow = Math.min(800, (60000 / bpmRef.current) * 0.75)
+          const threshold = Math.max(8, noiseFloorRef.current + 7)
+          if (elapsed >= 110 && elapsed <= detectionWindow && level >= threshold) {
+            beatDetectedRef.current = true
+            detectedBeatsRef.current += 1
+            setDetectedBeats(detectedBeatsRef.current)
+            setBeatHit(true)
+          }
+        }
         meterFrameRef.current = requestAnimationFrame(updateMeter)
       }
 
@@ -162,6 +199,10 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
       metronomeRef.current = null
     }
   }, [running])
+
+  useEffect(() => {
+    bpmRef.current = bpm
+  }, [bpm])
 
   useEffect(() => () => {
     if (metronomeRef.current) clearInterval(metronomeRef.current)
@@ -181,9 +222,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setBeat(0)
     setActiveChord(0)
     setCompletedCycles(0)
+    setDetectedBeats(0)
+    setExpectedBeats(0)
+    setBeatHit(false)
     beatRef.current = 0
     activeChordRef.current = 0
     completedCyclesRef.current = 0
+    detectedBeatsRef.current = 0
+    expectedBeatsRef.current = 0
+    runningRef.current = false
   }
 
   const answer = async (option: string) => {
@@ -212,9 +259,14 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
       setBeat(0)
       setActiveChord(0)
       setCompletedCycles(0)
+      setDetectedBeats(0)
+      setExpectedBeats(0)
+      setBeatHit(false)
       beatRef.current = 0
       activeChordRef.current = 0
       completedCyclesRef.current = 0
+      detectedBeatsRef.current = 0
+      expectedBeatsRef.current = 0
       return
     }
 
@@ -260,9 +312,13 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                 {practiceRounds[round].chords.map((chord, index) => <ChordDiagram key={chord} chord={chord} active={index === activeChord} />)}
               </div>
               <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
-                {[1, 2, 3, 4].map((count) => <span key={count} className={`grid size-8 place-items-center rounded-full border text-xs font-bold transition ${beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{count}</span>)}
+                {[1, 2, 3, 4].map((count) => {
+                  const confirmed = beat === count && beatHit
+                  return <span key={count} className={`grid size-8 place-items-center rounded-full border text-xs font-bold transition ${confirmed ? 'scale-110 border-emerald-200 bg-emerald-300 text-[#07101f]' : beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{confirmed ? <Check className="size-4" /> : count}</span>
+                })}
               </div>
               <p className="mt-3 text-xs font-semibold text-cyan-200">↓ Uma batida para baixo em cada número</p>
+              {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
               <div className={`mx-auto mt-6 grid size-24 place-items-center rounded-full border-4 font-display font-semibold ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
