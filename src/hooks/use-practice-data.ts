@@ -16,6 +16,7 @@ type PracticeSession = {
 
 const XP_PER_MINUTE = 2
 const XP_PER_LEVEL = 100
+const DAILY_GOAL_BONUS_XP = 20
 
 const localDate = () => {
   const date = new Date()
@@ -86,8 +87,14 @@ export function usePracticeData(user: User) {
 
   const summary = useMemo(() => {
     const today = localDate()
+    const dailyGoal = profile?.daily_goal_minutes ?? 15
     const todayMinutes = sessions.filter((session) => session.practiced_on === today).reduce((sum, session) => sum + session.minutes, 0)
     const totalMinutes = sessions.reduce((sum, session) => sum + session.minutes, 0)
+    const minutesByDay = sessions.reduce((days, session) => {
+      days.set(session.practiced_on, (days.get(session.practiced_on) ?? 0) + session.minutes)
+      return days
+    }, new Map<string, number>())
+    const completedGoalDays = [...minutesByDay.values()].filter((minutes) => minutes >= dailyGoal).length
     const practicedDays = new Set(sessions.map((session) => session.practiced_on))
     const cursor = new Date()
 
@@ -101,7 +108,7 @@ export function usePracticeData(user: User) {
       cursor.setDate(cursor.getDate() - 1)
     }
 
-    const totalXp = totalMinutes * XP_PER_MINUTE
+    const totalXp = totalMinutes * XP_PER_MINUTE + completedGoalDays * DAILY_GOAL_BONUS_XP
     const level = Math.floor(totalXp / XP_PER_LEVEL) + 1
     const levelXp = totalXp % XP_PER_LEVEL
 
@@ -113,8 +120,11 @@ export function usePracticeData(user: User) {
       level,
       levelXp,
       xpPerLevel: XP_PER_LEVEL,
+      todayGoalCompleted: todayMinutes >= dailyGoal,
+      dailyGoalBonusXp: DAILY_GOAL_BONUS_XP,
+      completedGoalDays,
     }
-  }, [sessions])
+  }, [profile?.daily_goal_minutes, sessions])
 
   return { profile, summary, loading, saving, error, addPractice }
 }
