@@ -365,7 +365,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                 </button>
               </>
             ) : (
-                <button type="button" disabled={saving} onClick={() => void finishRound()} className="fixed bottom-3 left-1/2 z-50 inline-flex w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-2xl shadow-black/70 disabled:opacity-50 sm:static sm:mt-5 sm:w-full sm:max-w-none sm:translate-x-0">
+                <button type="button" disabled={saving} onClick={() => void finishRound()} className="fixed bottom-3 left-1/2 z-50 inline-flex w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-2xl shadow-black/70 disabled:opacity-50 lg:static lg:mt-5 lg:w-full lg:max-w-none lg:translate-x-0">
                 <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
               </button>
             )}
