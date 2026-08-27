@@ -20,34 +20,37 @@ function App() {
               <p className="text-xs text-slate-400">Prática pessoal</p>
             </div>
           </div>
-          <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
-            XP em progresso
-          </span>
+          {session ? (
+            <button type="button" onClick={signOut} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/30 hover:text-white">
+              <LogOut className="size-3.5" /> Sair
+            </button>
+          ) : (
+            <span className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs text-emerald-300">
+              XP em progresso
+            </span>
+          )}
         </header>
 
-        <section className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
-          <div>
-            <p className="mb-5 text-xs font-semibold uppercase tracking-[0.32em] text-cyan-300">Aprenda no seu ritmo</p>
-            <h1 className="max-w-3xl font-display text-5xl font-semibold leading-[0.96] tracking-[-0.04em] sm:text-7xl">
-              Sua prática de violão, organizada como uma jornada.
-            </h1>
-            <p className="mt-7 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
-              Um projeto novo, limpo e focado no essencial: praticar, acompanhar a evolução e avançar um passo por vez.
-            </p>
-            {session && (
-              <div className="mt-9 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                <p className="text-sm text-emerald-200">Conectado como {session.user.email}</p>
-                <button type="button" onClick={signOut} className="mt-3 inline-flex items-center gap-2 text-xs text-slate-300 hover:text-white">
-                  <LogOut className="size-4" /> Sair
-                </button>
-              </div>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="grid min-h-96 place-items-center text-sm text-slate-400">Verificando sua sessão…</div>
-          ) : session ? <Dashboard user={session.user} /> : <AuthPanel />}
-        </section>
+        {loading ? (
+          <div className="grid flex-1 place-items-center text-sm text-slate-400">Verificando sua sessão…</div>
+        ) : session ? (
+          <section className="mx-auto flex w-full max-w-4xl flex-1 items-center py-10 sm:py-14">
+            <div className="w-full"><Dashboard user={session.user} /></div>
+          </section>
+        ) : (
+          <section className="grid flex-1 items-center gap-12 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
+            <div>
+              <p className="mb-5 text-xs font-semibold uppercase tracking-[0.32em] text-cyan-300">Aprenda no seu ritmo</p>
+              <h1 className="max-w-3xl font-display text-5xl font-semibold leading-[0.96] tracking-[-0.04em] sm:text-7xl">
+                Sua prática de violão, organizada como uma jornada.
+              </h1>
+              <p className="mt-7 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
+                Um projeto novo, limpo e focado no essencial: praticar, acompanhar a evolução e avançar um passo por vez.
+              </p>
+            </div>
+            <AuthPanel />
+          </section>
+        )}
 
         <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">
           React · TypeScript · Vite · Tailwind · Supabase
