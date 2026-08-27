@@ -8,7 +8,7 @@ const stages = [
   { level: 5, title: 'Campo harmônico', detail: 'Entenda como os acordes se conectam.' },
 ]
 
-export function Journey({ level }: { level: number }) {
+export function Journey({ level, onStart }: { level: number; onStart: () => void }) {
   return (
     <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
       <div className="flex items-center justify-between gap-4">
@@ -26,7 +26,7 @@ export function Journey({ level }: { level: number }) {
           const unlocked = level >= stage.level
 
           return (
-            <article key={stage.level} className={`relative flex items-center gap-4 rounded-2xl border p-3.5 transition sm:p-4 ${
+            <button type="button" disabled={!current} onClick={current ? onStart : undefined} key={stage.level} className={`relative flex w-full items-center gap-4 rounded-2xl border p-3.5 text-left transition sm:p-4 ${
               current
                 ? 'border-cyan-300/30 bg-gradient-to-r from-cyan-300/[0.1] to-violet-400/[0.06]'
                 : completed
@@ -56,7 +56,7 @@ export function Journey({ level }: { level: number }) {
               </div>
 
               {current && <Guitar className="hidden size-5 shrink-0 text-cyan-300/60 sm:block" />}
-            </article>
+            </button>
           )
         })}
       </div>

@@ -3,10 +3,12 @@ import type { User } from '@supabase/supabase-js'
 import { Check, CheckCircle2, Clock3, Flame, ListChecks, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
 import { usePracticeData } from '../hooks/use-practice-data'
 import { Journey } from './Journey'
+import { ChordExercise } from './ChordExercise'
 
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, loading, saving, error, addPractice } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
+  const [exerciseOpen, setExerciseOpen] = useState(false)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -39,6 +41,14 @@ export function Dashboard({ user }: { user: User }) {
         : { title: `+${reward.xpEarned} XP`, detail: `${minutes} minutos registrados` }
 
     setFeedback(nextFeedback)
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 2800)
+  }
+
+  const handleExerciseComplete = async (stars: number) => {
+    const reward = await addPractice(5, 'exercise')
+    if (!reward) return
+    setFeedback({ title: `${stars} ${stars === 1 ? 'estrela' : 'estrelas'} conquistadas!`, detail: `+${reward.xpEarned} XP pelo exercício` })
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
     feedbackTimer.current = setTimeout(() => setFeedback(null), 2800)
   }
@@ -135,7 +145,7 @@ export function Dashboard({ user }: { user: User }) {
             ))}
           </div>
         </div>
-        <Journey level={summary.level} />
+        <Journey level={summary.level} onStart={() => setExerciseOpen(true)} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
       {feedback && (
@@ -146,6 +156,7 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
       )}
+      {exerciseOpen && <ChordExercise onClose={() => setExerciseOpen(false)} onComplete={handleExerciseComplete} />}
     </div>
   )
 }

@@ -70,7 +70,7 @@ export function usePracticeData(user: User) {
     queueMicrotask(() => void load())
   }, [load])
 
-  const addPractice = async (minutes: number) => {
+  const addPractice = async (minutes: number, source: 'manual' | 'exercise' = 'manual') => {
     if (!supabase) return
     setSaving(true)
     setError(null)
@@ -84,7 +84,7 @@ export function usePracticeData(user: User) {
       user_id: user.id,
       minutes,
       practiced_on: localDate(),
-      source: 'manual',
+      source,
     })
     if (result.error) {
       setError(result.error.message)
