@@ -1,4 +1,6 @@
-import { ArrowRight, Flame, Guitar, Sparkles, Target } from 'lucide-react'
+import { Flame, Guitar, LogOut, Sparkles, Target } from 'lucide-react'
+import { AuthPanel } from './components/AuthPanel'
+import { useAuth } from './hooks/use-auth'
 
 const foundation = [
   { icon: Target, title: 'Meta diária', text: 'Uma rotina curta e clara para praticar todos os dias.' },
@@ -7,6 +9,8 @@ const foundation = [
 ]
 
 function App() {
+  const { session, loading, signOut } = useAuth()
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#07101f] text-white">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(139,92,246,0.16),transparent_34%)]" />
@@ -35,12 +39,19 @@ function App() {
             <p className="mt-7 max-w-xl text-base leading-7 text-slate-300 sm:text-lg">
               Um projeto novo, limpo e focado no essencial: praticar, acompanhar a evolução e avançar um passo por vez.
             </p>
-            <button type="button" className="mt-9 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-50">
-              Começar fundação <ArrowRight className="size-4" />
-            </button>
+            {session && (
+              <div className="mt-9 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                <p className="text-sm text-emerald-200">Conectado como {session.user.email}</p>
+                <button type="button" onClick={signOut} className="mt-3 inline-flex items-center gap-2 text-xs text-slate-300 hover:text-white">
+                  <LogOut className="size-4" /> Sair
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/20 backdrop-blur sm:p-6">
+          {loading ? (
+            <div className="grid min-h-96 place-items-center text-sm text-slate-400">Verificando sua sessão…</div>
+          ) : session ? <div className="rounded-[2rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/20 backdrop-blur sm:p-6">
             <div className="rounded-3xl border border-white/10 bg-[#0a1528] p-5 sm:p-7">
               <div className="flex items-center justify-between">
                 <div>
@@ -63,7 +74,7 @@ function App() {
                 ))}
               </div>
             </div>
-          </div>
+          </div> : <AuthPanel />}
         </section>
 
         <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">
