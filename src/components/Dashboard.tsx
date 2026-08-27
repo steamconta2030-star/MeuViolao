@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js'
-import { Clock3, Flame, LoaderCircle, Plus, Sparkles, Target } from 'lucide-react'
+import { Clock3, Flame, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
 import { usePracticeData } from '../hooks/use-practice-data'
 
 export function Dashboard({ user }: { user: User }) {
@@ -11,6 +11,7 @@ export function Dashboard({ user }: { user: User }) {
 
   const goal = profile?.daily_goal_minutes ?? 15
   const progress = Math.min(100, Math.round((summary.todayMinutes / goal) * 100))
+  const levelProgress = Math.round((summary.levelXp / summary.xpPerLevel) * 100)
 
   return (
     <div className="rounded-[2rem] border border-white/10 bg-white/[0.035] p-4 shadow-2xl shadow-black/20 backdrop-blur sm:p-6">
@@ -40,6 +41,25 @@ export function Dashboard({ user }: { user: User }) {
             <p className="mt-1 text-[10px] text-slate-500">sequência de prática</p>
           </article>
         </div>
+
+        <article className="mt-4 rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-violet-400/15 text-violet-300">
+                <Trophy className="size-4" />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-violet-300">Nível de prática</p>
+                <p className="mt-1 font-display text-2xl font-semibold">Nível {summary.level}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400"><span className="font-semibold text-white">{summary.levelXp}</span> / {summary.xpPerLevel} XP</p>
+          </div>
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-cyan-300 to-violet-400 transition-all" style={{ width: `${levelProgress}%` }} />
+          </div>
+          <p className="mt-2 text-right text-[10px] text-slate-500">Faltam {summary.xpPerLevel - summary.levelXp} XP para o nível {summary.level + 1}</p>
+        </article>
 
         <div className="mt-6">
           <p className="text-xs font-medium text-slate-300">Registrar prática rápida</p>
