@@ -74,15 +74,30 @@ export function usePracticeData(user: User) {
     if (!supabase) return
     setSaving(true)
     setError(null)
+    const today = localDate()
+    const dailyGoal = profile?.daily_goal_minutes ?? 15
+    const previousTodayMinutes = sessions
+      .filter((session) => session.practiced_on === today)
+      .reduce((sum, session) => sum + session.minutes, 0)
+    const goalCompletedNow = previousTodayMinutes < dailyGoal && previousTodayMinutes + minutes >= dailyGoal
     const result = await supabase.from('practice_sessions').insert({
       user_id: user.id,
       minutes,
       practiced_on: localDate(),
       source: 'manual',
     })
-    if (result.error) setError(result.error.message)
-    else await load()
+    if (result.error) {
+      setError(result.error.message)
+      setSaving(false)
+      return null
+    }
+
+    await load()
     setSaving(false)
+    return {
+      xpEarned: minutes * XP_PER_MINUTE + (goalCompletedNow ? DAILY_GOAL_BONUS_XP : 0),
+      goalCompletedNow,
+    }
   }
 
   const summary = useMemo(() => {
@@ -114,6 +129,7 @@ export function usePracticeData(user: User) {
 
     return {
       todayMinutes,
+      todaySessionCount: sessions.filter((session) => session.practiced_on === today).length,
       totalMinutes,
       totalXp,
       streak,
