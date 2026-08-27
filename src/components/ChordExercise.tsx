@@ -116,6 +116,17 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const chordAnalysisDueRef = useRef(0)
   const chordAnalysisTargetRef = useRef<PracticeChord>('Em')
   const chordCardRefs = useRef<Array<HTMLDivElement | null>>([])
+  const practiceCardRef = useRef<HTMLDivElement | null>(null)
+
+  const focusPractice = () => {
+    requestAnimationFrame(() => {
+      practiceCardRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      })
+    })
+  }
 
   const playClick = (accent: boolean) => {
     const context = audioContextRef.current
@@ -209,6 +220,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     chordAnalysisDueRef.current = 0
     setRunning(false)
     runCountdown(3)
+    focusPractice()
   }
 
   const enableMicrophone = async () => {
@@ -397,6 +409,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
       expectedBeatsRef.current = 0
       emMatchesRef.current = 0
       chordAnalysisDueRef.current = 0
+      focusPractice()
       return
     }
 
@@ -436,7 +449,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             <div className="flex items-center justify-between text-xs"><span className="text-slate-400">Rodada {round + 1} de {practiceRounds.length}</span><span className="flex items-center gap-1 text-rose-300"><Heart className="size-4 fill-current" /> {lives}</span></div>
             <div className="mt-3 flex gap-1">{practiceRounds.map((_, index) => <span key={index} className={`h-1.5 flex-1 rounded-full ${index <= round ? 'bg-violet-300' : 'bg-white/10'}`} />)}</div>
 
-            <div className="mt-4 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-3 text-center sm:mt-7 sm:p-6">
+            <div ref={practiceCardRef} className="mt-4 scroll-mt-2 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-3 text-center sm:mt-7 sm:p-6">
               <p className="mb-3 text-[10px] text-slate-400"><strong className="text-slate-200">1</strong> indicador · <strong className="text-slate-200">2</strong> médio · <strong className="text-slate-200">3</strong> anelar · <strong className="text-slate-200">4</strong> mínimo</p>
               <div className="flex snap-x flex-nowrap justify-start gap-2 overflow-x-auto pb-2 sm:justify-center">
                 {practiceRounds[round].chords.map((chord, index) => (
