@@ -14,6 +14,8 @@ type PracticeSession = {
   practiced_on: string
 }
 
+const XP_PER_MINUTE = 2
+
 const localDate = () => {
   const date = new Date()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -32,7 +34,7 @@ export function usePracticeData(user: User) {
 
     const [profileResult, sessionsResult] = await Promise.all([
       supabase.from('profiles').select('display_name, daily_goal_minutes, xp').eq('user_id', user.id).maybeSingle(),
-      supabase.from('practice_sessions').select('id, minutes, practiced_on').eq('user_id', user.id).order('practiced_on', { ascending: false }).limit(60),
+      supabase.from('practice_sessions').select('id, minutes, practiced_on').eq('user_id', user.id).order('practiced_on', { ascending: false }),
     ])
 
     if (profileResult.error) {
@@ -85,7 +87,25 @@ export function usePracticeData(user: User) {
     const today = localDate()
     const todayMinutes = sessions.filter((session) => session.practiced_on === today).reduce((sum, session) => sum + session.minutes, 0)
     const totalMinutes = sessions.reduce((sum, session) => sum + session.minutes, 0)
-    return { todayMinutes, totalMinutes }
+    const practicedDays = new Set(sessions.map((session) => session.practiced_on))
+    const cursor = new Date()
+
+    if (!practicedDays.has(today)) cursor.setDate(cursor.getDate() - 1)
+
+    let streak = 0
+    while (practicedDays.has(
+      `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`,
+    )) {
+      streak += 1
+      cursor.setDate(cursor.getDate() - 1)
+    }
+
+    return {
+      todayMinutes,
+      totalMinutes,
+      totalXp: totalMinutes * XP_PER_MINUTE,
+      streak,
+    }
   }, [sessions])
 
   return { profile, summary, loading, saving, error, addPractice }
