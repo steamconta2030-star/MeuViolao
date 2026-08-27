@@ -13,7 +13,7 @@ const practiceRounds = [
   { chord: 'Em → G → C → D', title: 'Complete a sequência', instruction: 'Toque a sequência inteira duas vezes.' },
 ]
 
-export function ChordExercise({ onClose, onComplete }: { onClose: () => void; onComplete: (stars: number) => Promise<void> }) {
+export function ChordExercise({ onClose, onComplete }: { onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
   const [question, setQuestion] = useState(0)
   const [lives, setLives] = useState(3)
   const [wrongAnswer, setWrongAnswer] = useState<string | null>(null)
@@ -78,8 +78,8 @@ export function ChordExercise({ onClose, onComplete }: { onClose: () => void; on
     }
 
     setSaving(true)
-    await onComplete(lives)
-    setFinished(true)
+    const saved = await onComplete(lives)
+    if (saved) setFinished(true)
     setSaving(false)
   }
 

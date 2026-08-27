@@ -14,6 +14,12 @@ type PracticeSession = {
   practiced_on: string
 }
 
+type ExerciseProgress = {
+  exercise_id: string
+  best_stars: number
+  completions: number
+}
+
 const XP_PER_MINUTE = 2
 const XP_PER_LEVEL = 100
 const DAILY_GOAL_BONUS_XP = 20
@@ -26,6 +32,7 @@ const localDate = () => {
 export function usePracticeData(user: User) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [sessions, setSessions] = useState<PracticeSession[]>([])
+  const [exerciseProgress, setExerciseProgress] = useState<ExerciseProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,9 +41,10 @@ export function usePracticeData(user: User) {
     if (!supabase) return
     setError(null)
 
-    const [profileResult, sessionsResult] = await Promise.all([
+    const [profileResult, sessionsResult, progressResult] = await Promise.all([
       supabase.from('profiles').select('display_name, daily_goal_minutes, xp').eq('user_id', user.id).maybeSingle(),
       supabase.from('practice_sessions').select('id, minutes, practiced_on').eq('user_id', user.id).order('practiced_on', { ascending: false }),
+      supabase.from('exercise_progress').select('exercise_id, best_stars, completions').eq('user_id', user.id),
     ])
 
     if (profileResult.error) {
@@ -61,8 +69,10 @@ export function usePracticeData(user: User) {
     }
 
     if (sessionsResult.error) setError(sessionsResult.error.message)
+    if (progressResult.error) setError(progressResult.error.message)
     setProfile(nextProfile)
     setSessions((sessionsResult.data ?? []) as PracticeSession[])
+    setExerciseProgress((progressResult.data ?? []) as ExerciseProgress[])
     setLoading(false)
   }, [user.id])
 
@@ -98,6 +108,26 @@ export function usePracticeData(user: User) {
       xpEarned: minutes * XP_PER_MINUTE + (goalCompletedNow ? DAILY_GOAL_BONUS_XP : 0),
       goalCompletedNow,
     }
+  }
+
+  const saveExerciseProgress = async (exerciseId: string, stars: number) => {
+    if (!supabase) return false
+    const previous = exerciseProgress.find((item) => item.exercise_id === exerciseId)
+    const result = await supabase.from('exercise_progress').upsert({
+      user_id: user.id,
+      exercise_id: exerciseId,
+      best_stars: Math.max(previous?.best_stars ?? 0, stars),
+      completions: (previous?.completions ?? 0) + 1,
+      last_completed_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,exercise_id' })
+
+    if (result.error) {
+      setError(result.error.message)
+      return false
+    }
+
+    await load()
+    return true
   }
 
   const summary = useMemo(() => {
@@ -142,5 +172,5 @@ export function usePracticeData(user: User) {
     }
   }, [profile?.daily_goal_minutes, sessions])
 
-  return { profile, summary, loading, saving, error, addPractice }
+  return { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress }
 }

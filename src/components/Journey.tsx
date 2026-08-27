@@ -1,4 +1,4 @@
-import { Check, Guitar, LockKeyhole, Map, Play } from 'lucide-react'
+import { Check, Guitar, LockKeyhole, Map, Play, Star } from 'lucide-react'
 
 const stages = [
   { level: 1, title: 'Primeiros acordes', detail: 'Em, G, C e D para começar a tocar.' },
@@ -8,7 +8,7 @@ const stages = [
   { level: 5, title: 'Campo harmônico', detail: 'Entenda como os acordes se conectam.' },
 ]
 
-export function Journey({ level, onStart }: { level: number; onStart: () => void }) {
+export function Journey({ level, bestStars, onStart }: { level: number; bestStars: number; onStart: () => void }) {
   return (
     <section className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4 sm:p-5">
       <div className="flex items-center justify-between gap-4">
@@ -53,6 +53,7 @@ export function Journey({ level, onStart }: { level: number; onStart: () => void
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] leading-5 text-slate-500">{stage.detail}</p>
+                {stage.level === 1 && bestStars > 0 && <div className="mt-2 flex gap-1" aria-label={`Melhor resultado: ${bestStars} estrelas`}>{[1, 2, 3].map((star) => <Star key={star} className={`size-3.5 ${star <= bestStars ? 'fill-amber-300 text-amber-300' : 'text-white/10'}`} />)}</div>}
               </div>
 
               {current && <Guitar className="hidden size-5 shrink-0 text-cyan-300/60 sm:block" />}

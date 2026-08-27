@@ -6,7 +6,7 @@ import { Journey } from './Journey'
 import { ChordExercise } from './ChordExercise'
 
 export function Dashboard({ user }: { user: User }) {
-  const { profile, summary, loading, saving, error, addPractice } = usePracticeData(user)
+  const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
   const [exerciseOpen, setExerciseOpen] = useState(false)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,11 +46,14 @@ export function Dashboard({ user }: { user: User }) {
   }
 
   const handleExerciseComplete = async (stars: number) => {
+    const progressSaved = await saveExerciseProgress('first-chords', stars)
+    if (!progressSaved) return false
     const reward = await addPractice(5, 'exercise')
-    if (!reward) return
+    if (!reward) return false
     setFeedback({ title: `${stars} ${stars === 1 ? 'estrela' : 'estrelas'} conquistadas!`, detail: `+${reward.xpEarned} XP pelo exercício` })
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
     feedbackTimer.current = setTimeout(() => setFeedback(null), 2800)
+    return true
   }
 
   return (
@@ -145,7 +148,7 @@ export function Dashboard({ user }: { user: User }) {
             ))}
           </div>
         </div>
-        <Journey level={summary.level} onStart={() => setExerciseOpen(true)} />
+        <Journey level={summary.level} bestStars={exerciseProgress.find((item) => item.exercise_id === 'first-chords')?.best_stars ?? 0} onStart={() => setExerciseOpen(true)} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
       {feedback && (
