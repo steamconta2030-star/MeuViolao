@@ -99,6 +99,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const roundRef = useRef(0)
   const emMatchesRef = useRef(0)
   const chordAnalysisDueRef = useRef(0)
+  const chordCardRefs = useRef<Array<HTMLDivElement | null>>([])
 
   const playClick = (accent: boolean) => {
     const context = audioContextRef.current
@@ -273,6 +274,14 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     roundRef.current = round
   }, [round])
 
+  useEffect(() => {
+    chordCardRefs.current[activeChord]?.scrollIntoView({
+      behavior: running ? 'smooth' : 'auto',
+      block: 'nearest',
+      inline: 'center',
+    })
+  }, [activeChord, running])
+
   useEffect(() => () => {
     if (metronomeRef.current) clearInterval(metronomeRef.current)
     if (meterFrameRef.current) cancelAnimationFrame(meterFrameRef.current)
@@ -388,7 +397,11 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             <div className="mt-4 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-3 text-center sm:mt-7 sm:p-6">
               <p className="mb-3 text-[10px] text-slate-400"><strong className="text-slate-200">1</strong> indicador · <strong className="text-slate-200">2</strong> médio · <strong className="text-slate-200">3</strong> anelar · <strong className="text-slate-200">4</strong> mínimo</p>
               <div className="flex snap-x flex-nowrap justify-start gap-2 overflow-x-auto pb-2 sm:justify-center">
-                {practiceRounds[round].chords.map((chord, index) => <ChordDiagram key={chord} chord={chord} active={index === activeChord} />)}
+                {practiceRounds[round].chords.map((chord, index) => (
+                  <div key={chord} ref={(element) => { chordCardRefs.current[index] = element }} className="shrink-0 snap-center">
+                    <ChordDiagram chord={chord} active={index === activeChord} />
+                  </div>
+                ))}
               </div>
               <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
                 {[1, 2, 3, 4].map((count) => {
