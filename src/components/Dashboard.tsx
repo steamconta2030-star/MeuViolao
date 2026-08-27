@@ -148,7 +148,7 @@ export function Dashboard({ user }: { user: User }) {
             ))}
           </div>
         </div>
-        <Journey level={summary.level} bestStars={exerciseProgress.find((item) => item.exercise_id === 'first-chords')?.best_stars ?? 0} onStart={() => setExerciseOpen(true)} />
+        <Journey progress={exerciseProgress} onStart={() => setExerciseOpen(true)} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
       {feedback && (
