@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js'
-import { Clock3, Flame, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
+import { CheckCircle2, Clock3, Flame, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
 import { usePracticeData } from '../hooks/use-practice-data'
 
 export function Dashboard({ user }: { user: User }) {
@@ -21,10 +21,13 @@ export function Dashboard({ user }: { user: User }) {
         <p className="mt-2 text-sm text-slate-400">{user.email}</p>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <Target className="size-4 text-cyan-300" />
+          <article className={`rounded-2xl border p-4 transition ${summary.todayGoalCompleted ? 'border-emerald-400/30 bg-emerald-400/[0.08]' : 'border-white/10 bg-white/[0.03]'}`}>
+            {summary.todayGoalCompleted ? <CheckCircle2 className="size-4 text-emerald-300" /> : <Target className="size-4 text-cyan-300" />}
             <p className="mt-3 text-2xl font-semibold">{summary.todayMinutes}<span className="ml-1 text-xs font-normal text-slate-400">/ {goal} min</span></p>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-violet-400 transition-all" style={{ width: `${progress}%` }} /></div>
+            <p className={`mt-2 text-[10px] ${summary.todayGoalCompleted ? 'font-semibold text-emerald-300' : 'text-slate-500'}`}>
+              {summary.todayGoalCompleted ? `Meta concluída · +${summary.dailyGoalBonusXp} XP` : `Recompensa: +${summary.dailyGoalBonusXp} XP`}
+            </p>
           </article>
           <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <Clock3 className="size-4 text-violet-300" />
@@ -33,7 +36,7 @@ export function Dashboard({ user }: { user: User }) {
           <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <Sparkles className="size-4 text-amber-300" />
             <p className="mt-3 text-2xl font-semibold">{summary.totalXp}<span className="ml-1 text-xs font-normal text-slate-400">XP</span></p>
-            <p className="mt-1 text-[10px] text-slate-500">2 XP por minuto</p>
+            <p className="mt-1 text-[10px] text-slate-500">2 XP por minuto + bônus</p>
           </article>
           <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <Flame className="size-4 text-orange-300" />
