@@ -33,6 +33,30 @@ const exercises = {
 
 type ExerciseId = keyof typeof exercises
 
+const analyzeEm = (spectrum: Uint8Array, sampleRate: number, fftSize: number) => {
+  const chroma = Array.from({ length: 12 }, () => 0)
+  const binHz = sampleRate / fftSize
+
+  for (let index = Math.ceil(70 / binHz); index <= Math.floor(900 / binHz); index += 1) {
+    const magnitude = spectrum[index] / 255
+    if (magnitude < 0.06) continue
+    const frequency = index * binHz
+    const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
+    const pitchClass = ((midi % 12) + 12) % 12
+    chroma[pitchClass] += magnitude * magnitude
+  }
+
+  const total = chroma.reduce((sum, value) => sum + value, 0)
+  if (total === 0) return { matched: false, confidence: 0 }
+
+  const emNotes = [4, 7, 11] // E, G, B
+  const targetShare = emNotes.reduce((sum, note) => sum + chroma[note], 0) / total
+  const presentNotes = emNotes.filter((note) => chroma[note] / total >= 0.045).length
+  const confidence = Math.max(0, Math.min(100, Math.round(((targetShare - 0.25) / 0.3) * 100)))
+
+  return { matched: targetShare >= 0.4 && presentNotes >= 2, confidence }
+}
+
 export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
   const { title, questions, rounds: practiceRounds } = exercises[exerciseId]
   const [question, setQuestion] = useState(0)
@@ -53,6 +77,9 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const [detectedBeats, setDetectedBeats] = useState(0)
   const [expectedBeats, setExpectedBeats] = useState(0)
   const [beatHit, setBeatHit] = useState(false)
+  const [emStatus, setEmStatus] = useState<'idle' | 'matched' | 'uncertain'>('idle')
+  const [emConfidence, setEmConfidence] = useState(0)
+  const [emMatches, setEmMatches] = useState(0)
   const audioContextRef = useRef<AudioContext | null>(null)
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const beatRef = useRef(0)
@@ -68,6 +95,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const noiseFloorRef = useRef(1.5)
   const previousGuitarEnergyRef = useRef(0)
   const bpmRef = useRef(60)
+  const roundRef = useRef(0)
+  const emMatchesRef = useRef(0)
 
   const playClick = (accent: boolean) => {
     const context = audioContextRef.current
@@ -134,6 +163,10 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setDetectedBeats(0)
     setExpectedBeats(0)
     setBeatHit(false)
+    setEmStatus('idle')
+    setEmConfidence(0)
+    setEmMatches(0)
+    emMatchesRef.current = 0
     setRunning(true)
     pulse()
     metronomeRef.current = setInterval(pulse, 60000 / bpm)
@@ -193,6 +226,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             detectedBeatsRef.current += 1
             setDetectedBeats(detectedBeatsRef.current)
             setBeatHit(true)
+            if (exerciseId === 'first-chords' && roundRef.current === 0) {
+              const result = analyzeEm(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize)
+              setEmConfidence(result.confidence)
+              setEmStatus(result.matched ? 'matched' : 'uncertain')
+              if (result.matched) {
+                emMatchesRef.current += 1
+                setEmMatches(emMatchesRef.current)
+              }
+            }
           }
         }
         previousGuitarEnergyRef.current = guitarEnergy
@@ -217,6 +259,10 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     bpmRef.current = bpm
   }, [bpm])
 
+  useEffect(() => {
+    roundRef.current = round
+  }, [round])
+
   useEffect(() => () => {
     if (metronomeRef.current) clearInterval(metronomeRef.current)
     if (meterFrameRef.current) cancelAnimationFrame(meterFrameRef.current)
@@ -238,12 +284,16 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setDetectedBeats(0)
     setExpectedBeats(0)
     setBeatHit(false)
+    setEmStatus('idle')
+    setEmConfidence(0)
+    setEmMatches(0)
     beatRef.current = 0
     activeChordRef.current = 0
     completedCyclesRef.current = 0
     detectedBeatsRef.current = 0
     expectedBeatsRef.current = 0
     runningRef.current = false
+    emMatchesRef.current = 0
   }
 
   const answer = async (option: string) => {
@@ -275,11 +325,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
       setDetectedBeats(0)
       setExpectedBeats(0)
       setBeatHit(false)
+      setEmStatus('idle')
+      setEmConfidence(0)
+      setEmMatches(0)
       beatRef.current = 0
       activeChordRef.current = 0
       completedCyclesRef.current = 0
       detectedBeatsRef.current = 0
       expectedBeatsRef.current = 0
+      emMatchesRef.current = 0
       return
     }
 
@@ -332,6 +386,12 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               </div>
               <p className="mt-3 text-xs font-semibold text-cyan-200">↓ Uma batida para baixo em cada número</p>
               {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
+              {micStatus === 'active' && exerciseId === 'first-chords' && round === 0 && (
+                <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>
+                  {emStatus === 'matched' ? `✓ Em reconhecido · compatibilidade ${emConfidence}%` : emStatus === 'uncertain' ? `Som captado, mas o Em ainda está incerto · ${emConfidence}%` : 'Teste de acorde: toque o Em em cada tempo'}
+                  {detectedBeats > 0 && <small className="mt-1 block opacity-75">{emMatches} de {detectedBeats} batidas pareceram Em</small>}
+                </div>
+              )}
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
               <div className={`mx-auto mt-4 grid size-20 place-items-center rounded-full border-4 font-display font-semibold sm:mt-6 sm:size-24 ${completedCycles >= practiceRounds[round].targetCycles ? 'border-emerald-300/40 bg-emerald-300/10 text-emerald-300' : 'border-cyan-300/30 bg-cyan-300/[0.06] text-cyan-200'}`}>
