@@ -24,11 +24,11 @@ const shapes: Record<ChordName, ChordShape> = {
   },
 }
 
-export function ChordDiagram({ chord }: { chord: ChordName }) {
+export function ChordDiagram({ chord, active = false }: { chord: ChordName; active?: boolean }) {
   const shape = shapes[chord]
 
   return (
-    <figure className="w-[108px] shrink-0 rounded-2xl border border-white/10 bg-[#0c182b] px-2 pb-2 pt-1">
+    <figure className={`w-[108px] shrink-0 rounded-2xl border px-2 pb-2 pt-1 transition duration-200 ${active ? 'scale-[1.04] border-cyan-300/70 bg-cyan-300/10 shadow-lg shadow-cyan-500/10' : 'border-white/10 bg-[#0c182b] opacity-65'}`}>
       <figcaption className="text-center font-display text-xl font-semibold text-white">{chord}</figcaption>
       <svg viewBox="0 0 130 138" role="img" aria-label={`Diagrama do acorde ${chord}`} className="mt-1 w-full">
         {shape.strings.map((status, index) => (

@@ -1,5 +1,5 @@
 import { Check, Clock3, Heart, Play, RotateCcw, Star, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChordDiagram } from './ChordDiagram'
 
 const exercises = {
@@ -45,6 +45,48 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const [round, setRound] = useState(0)
   const [seconds, setSeconds] = useState(20)
   const [running, setRunning] = useState(false)
+  const [bpm, setBpm] = useState(60)
+  const [beat, setBeat] = useState(0)
+  const [activeChord, setActiveChord] = useState(0)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const beatRef = useRef(0)
+
+  const playClick = (accent: boolean) => {
+    const context = audioContextRef.current
+    if (!context) return
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    oscillator.frequency.value = accent ? 1100 : 760
+    gain.gain.setValueAtTime(accent ? 0.12 : 0.07, context.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.06)
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start()
+    oscillator.stop(context.currentTime + 0.07)
+  }
+
+  const pulse = () => {
+    const previousBeat = beatRef.current
+    const nextBeat = (beatRef.current % 4) + 1
+    beatRef.current = nextBeat
+    setBeat(nextBeat)
+    playClick(nextBeat === 1)
+    if (nextBeat === 1 && previousBeat !== 0) {
+      setActiveChord((current) => (current + 1) % practiceRounds[round].chords.length)
+    }
+  }
+
+  const startRound = async () => {
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext()
+    await audioContextRef.current.resume()
+    beatRef.current = 0
+    setBeat(0)
+    setActiveChord(0)
+    setRunning(true)
+    pulse()
+    metronomeRef.current = setInterval(pulse, 60000 / bpm)
+  }
 
   useEffect(() => {
     if (!running) return
@@ -60,6 +102,18 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     return () => clearInterval(timer)
   }, [running])
 
+  useEffect(() => {
+    if (!running && metronomeRef.current) {
+      clearInterval(metronomeRef.current)
+      metronomeRef.current = null
+    }
+  }, [running])
+
+  useEffect(() => () => {
+    if (metronomeRef.current) clearInterval(metronomeRef.current)
+    void audioContextRef.current?.close()
+  }, [])
+
   const restart = () => {
     setQuestion(0)
     setLives(3)
@@ -69,6 +123,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setRound(0)
     setSeconds(20)
     setRunning(false)
+    setBeat(0)
+    setActiveChord(0)
   }
 
   const answer = async (option: string) => {
@@ -95,6 +151,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     if (round < practiceRounds.length - 1) {
       setRound((current) => current + 1)
       setSeconds(20)
+      setBeat(0)
+      setActiveChord(0)
       return
     }
 
@@ -137,7 +195,10 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             <div className="mt-7 rounded-3xl border border-violet-400/20 bg-violet-400/[0.07] p-6 text-center">
               <p className="mb-3 text-[10px] text-slate-400"><strong className="text-slate-200">1</strong> indicador · <strong className="text-slate-200">2</strong> médio · <strong className="text-slate-200">3</strong> anelar · <strong className="text-slate-200">4</strong> mínimo</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {practiceRounds[round].chords.map((chord) => <ChordDiagram key={chord} chord={chord} />)}
+                {practiceRounds[round].chords.map((chord, index) => <ChordDiagram key={chord} chord={chord} active={index === activeChord} />)}
+              </div>
+              <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
+                {[1, 2, 3, 4].map((count) => <span key={count} className={`grid size-8 place-items-center rounded-full border text-xs font-bold transition ${beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{count}</span>)}
               </div>
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>
               <p className="mt-2 text-sm leading-6 text-slate-400">{practiceRounds[round].instruction}</p>
@@ -147,9 +208,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             </div>
 
             {seconds > 0 ? (
-              <button type="button" disabled={running} onClick={() => setRunning(true)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-[#07101f] disabled:bg-cyan-300/40">
-                {running ? <><Clock3 className="size-4" /> Toque por {seconds}s</> : <><Play className="size-4" /> Iniciar rodada de 20s</>}
-              </button>
+              <>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <span className="mr-1 text-xs text-slate-500">Velocidade</span>
+                  {[40, 60, 80].map((value) => <button key={value} type="button" disabled={running} onClick={() => setBpm(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${bpm === value ? 'border-violet-300/50 bg-violet-300/15 text-violet-200' : 'border-white/10 text-slate-400'} disabled:opacity-50`}>{value} BPM</button>)}
+                </div>
+                <button type="button" disabled={running} onClick={() => void startRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-semibold text-[#07101f] disabled:bg-cyan-300/40">
+                  {running ? <><Clock3 className="size-4" /> Toque por {seconds}s · {bpm} BPM</> : <><Play className="size-4" /> Iniciar rodada de 20s</>}
+                </button>
+              </>
             ) : (
               <button type="button" disabled={saving} onClick={() => void finishRound()} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] disabled:opacity-50">
                 <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
