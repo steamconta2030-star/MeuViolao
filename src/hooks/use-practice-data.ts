@@ -15,6 +15,7 @@ type PracticeSession = {
 }
 
 const XP_PER_MINUTE = 2
+const XP_PER_LEVEL = 100
 
 const localDate = () => {
   const date = new Date()
@@ -100,11 +101,18 @@ export function usePracticeData(user: User) {
       cursor.setDate(cursor.getDate() - 1)
     }
 
+    const totalXp = totalMinutes * XP_PER_MINUTE
+    const level = Math.floor(totalXp / XP_PER_LEVEL) + 1
+    const levelXp = totalXp % XP_PER_LEVEL
+
     return {
       todayMinutes,
       totalMinutes,
-      totalXp: totalMinutes * XP_PER_MINUTE,
+      totalXp,
       streak,
+      level,
+      levelXp,
+      xpPerLevel: XP_PER_LEVEL,
     }
   }, [sessions])
 
