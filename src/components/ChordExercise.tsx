@@ -1,4 +1,4 @@
-import { Check, Clock3, Heart, Play, RotateCcw, Star, X } from 'lucide-react'
+import { Check, Clock3, Heart, Mic, MicOff, Play, RotateCcw, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ChordDiagram } from './ChordDiagram'
 
@@ -48,9 +48,13 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const [bpm, setBpm] = useState(60)
   const [beat, setBeat] = useState(0)
   const [activeChord, setActiveChord] = useState(0)
+  const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'>('idle')
+  const [micLevel, setMicLevel] = useState(0)
   const audioContextRef = useRef<AudioContext | null>(null)
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const beatRef = useRef(0)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const meterFrameRef = useRef<number | null>(null)
 
   const playClick = (accent: boolean) => {
     const context = audioContextRef.current
@@ -88,6 +92,46 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     metronomeRef.current = setInterval(pulse, 60000 / bpm)
   }
 
+  const enableMicrophone = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicStatus('unsupported')
+      return
+    }
+
+    setMicStatus('requesting')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      })
+      if (!audioContextRef.current) audioContextRef.current = new AudioContext()
+      await audioContextRef.current.resume()
+
+      mediaStreamRef.current = stream
+      const analyser = audioContextRef.current.createAnalyser()
+      analyser.fftSize = 1024
+      analyser.smoothingTimeConstant = 0.75
+      audioContextRef.current.createMediaStreamSource(stream).connect(analyser)
+      const samples = new Uint8Array(analyser.fftSize)
+
+      const updateMeter = () => {
+        analyser.getByteTimeDomainData(samples)
+        let sum = 0
+        for (const sample of samples) {
+          const centered = (sample - 128) / 128
+          sum += centered * centered
+        }
+        const rms = Math.sqrt(sum / samples.length)
+        setMicLevel(Math.min(100, Math.round(rms * 420)))
+        meterFrameRef.current = requestAnimationFrame(updateMeter)
+      }
+
+      setMicStatus('active')
+      updateMeter()
+    } catch {
+      setMicStatus('denied')
+    }
+  }
+
   useEffect(() => {
     if (!running) return
     const timer = setInterval(() => {
@@ -111,6 +155,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
 
   useEffect(() => () => {
     if (metronomeRef.current) clearInterval(metronomeRef.current)
+    if (meterFrameRef.current) cancelAnimationFrame(meterFrameRef.current)
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop())
     void audioContextRef.current?.close()
   }, [])
 
@@ -209,6 +255,21 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
 
             {seconds > 0 ? (
               <>
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      {micStatus === 'active' ? <Mic className="size-4 shrink-0 text-emerald-300" /> : <MicOff className="size-4 shrink-0 text-slate-500" />}
+                      <div className="min-w-0 text-left">
+                        <p className="text-xs font-semibold">{micStatus === 'active' ? 'Microfone captando' : 'Captação do violão'}</p>
+                        <p className="text-[10px] text-slate-500">{micStatus === 'active' ? 'Toque as cordas e observe o nível.' : 'Ative para testar o som do aparelho.'}</p>
+                      </div>
+                    </div>
+                    {micStatus !== 'active' && <button type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="shrink-0 rounded-lg border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-xs font-semibold text-emerald-200 disabled:opacity-50">{micStatus === 'requesting' ? 'Aguardando…' : 'Ativar'}</button>}
+                  </div>
+                  {micStatus === 'active' && <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-emerald-300 via-cyan-300 to-violet-300 transition-[width] duration-75" style={{ width: `${micLevel}%` }} /></div>}
+                  {micStatus === 'denied' && <p className="mt-2 text-left text-[10px] text-rose-300">Permissão negada. Libere o microfone nas configurações do navegador e tente novamente.</p>}
+                  {micStatus === 'unsupported' && <p className="mt-2 text-left text-[10px] text-amber-300">Este navegador não disponibilizou acesso ao microfone.</p>}
+                </div>
                 <div className="mt-4 flex items-center justify-center gap-2">
                   <span className="mr-1 text-xs text-slate-500">Velocidade</span>
                   {[40, 60, 80].map((value) => <button key={value} type="button" disabled={running} onClick={() => setBpm(value)} className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${bpm === value ? 'border-violet-300/50 bg-violet-300/15 text-violet-200' : 'border-white/10 text-slate-400'} disabled:opacity-50`}>{value} BPM</button>)}
