@@ -21,7 +21,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Exercícios com perguntas, vidas e estrelas.
 - Rodadas práticas estruturadas por compassos e voltas completas.
 - Progressão inicial: Em → G → C → D.
-- Lição de mão direita com pulso firme, movimento contínuo e primeira alternância entre baixo e cima.
+- Lição de mão direita com subida sem som, batida para cima isolada e primeira alternância entre baixo e cima.
 - Diagramas com cordas abertas, cordas abafadas e numeração dos dedos.
 
 ### Identidade visual
@@ -30,6 +30,12 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Interface lúdica inspirada em princípios de aprendizagem gamificada, sem copiar marcas ou elementos do Duolingo.
 - Cartões arredondados, botões com profundidade e cores ciano, violeta, amarelo e verde.
 - Trilha musical alternada com estados de etapa atual, concluída e bloqueada.
+
+### Regra de navegação guiada
+
+- Toda ação que abre um exercício deve levar a tela imediatamente ao conteúdo ativo.
+- A interface deve acompanhar perguntas, início da prática, próximas rodadas e conclusão.
+- No celular, a próxima ação importante não deve exigir que a pessoa procure manualmente pela tela.
 
 ### Prática guiada
 

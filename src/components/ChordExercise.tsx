@@ -37,8 +37,8 @@ const exercises = {
       { prompt: 'Qual movimento vem depois da batida para baixo?', options: ['A subida da mão', 'Parar por completo', 'Trocar de acorde'], answer: 'A subida da mão' },
     ],
     rounds: [
-      { chords: ['Em'], strums: ['down', 'down', 'down', 'down'], targetCycles: 4, title: 'Pulso firme', instruction: 'Toque quatro batidas para baixo no Em. Use 40 BPM e deixe a mão relaxada.' },
-      { chords: ['Em'], strums: ['down', 'down', 'down', 'down'], targetCycles: 4, title: 'Movimento contínuo', instruction: 'Toque para baixo em cada número e faça a mão voltar para cima sem tocar nas cordas.' },
+      { chords: ['Em'], strums: ['down', 'ghost-up', 'down', 'ghost-up'], targetCycles: 6, title: 'Movimento contínuo', instruction: 'Toque nas descidas. Nas subidas, passe a mão pelo ar sem encostar nas cordas.' },
+      { chords: ['Em'], strums: ['up', 'up', 'up', 'up'], targetCycles: 4, title: 'Subida isolada', instruction: 'Toque somente para cima. Entre as batidas, volte a mão para baixo sem tocar nas cordas.' },
       { chords: ['Em'], strums: ['down', 'up', 'down', 'up'], targetCycles: 6, title: 'Primeiro baixo e cima', instruction: 'Alterne devagar: baixo, cima, baixo, cima. Continue no Em para focar somente na mão direita.' },
     ],
   },
@@ -46,6 +46,8 @@ const exercises = {
 
 type ExerciseId = keyof typeof exercises
 type PracticeChord = 'Em' | 'G' | 'C' | 'D'
+
+const audioTimestamp = () => performance.now()
 
 const chordPitchClasses: Record<PracticeChord, number[]> = {
   Em: [4, 7, 11], // E, G, B
@@ -121,6 +123,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const beatDetectedRef = useRef(false)
   const detectedBeatsRef = useRef(0)
   const expectedBeatsRef = useRef(0)
+  const beatExpectsSoundRef = useRef(true)
   const noiseFloorRef = useRef(1.5)
   const previousGuitarEnergyRef = useRef(0)
   const bpmRef = useRef(60)
@@ -129,7 +132,10 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
   const chordAnalysisDueRef = useRef(0)
   const chordAnalysisTargetRef = useRef<PracticeChord>('Em')
   const chordCardRefs = useRef<Array<HTMLDivElement | null>>([])
+  const exerciseScrollRef = useRef<HTMLDivElement | null>(null)
+  const questionRef = useRef<HTMLHeadingElement | null>(null)
   const practiceCardRef = useRef<HTMLDivElement | null>(null)
+  const resultRef = useRef<HTMLDivElement | null>(null)
 
   const focusPractice = () => {
     requestAnimationFrame(() => {
@@ -182,10 +188,15 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     }
 
     beatRef.current = nextBeat
-    beatStartedAtRef.current = performance.now()
+    beatStartedAtRef.current = audioTimestamp()
     beatDetectedRef.current = false
-    expectedBeatsRef.current += 1
-    setExpectedBeats(expectedBeatsRef.current)
+    const currentRound = practiceRounds[roundRef.current]
+    const currentPattern = 'strums' in currentRound ? currentRound.strums : ['down', 'down', 'down', 'down']
+    beatExpectsSoundRef.current = currentPattern[nextBeat - 1] !== 'ghost-up'
+    if (beatExpectsSoundRef.current) {
+      expectedBeatsRef.current += 1
+      setExpectedBeats(expectedBeatsRef.current)
+    }
     setBeatHit(false)
     setEmStatus('idle')
     setBeat(nextBeat)
@@ -277,7 +288,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
           guitarBandSum += spectrum[index]
         }
         const guitarEnergy = (guitarBandSum / (guitarBandEnd - guitarBandStart + 1) / 255) * 100
-        const now = performance.now()
+        const now = audioTimestamp()
 
         if (chordAnalysisDueRef.current > 0 && now >= chordAnalysisDueRef.current) {
           chordAnalysisDueRef.current = 0
@@ -292,8 +303,8 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
 
         if (!runningRef.current) {
           noiseFloorRef.current = noiseFloorRef.current * 0.96 + guitarEnergy * 0.04
-        } else if (!beatDetectedRef.current) {
-          const elapsed = performance.now() - beatStartedAtRef.current
+        } else if (beatExpectsSoundRef.current && !beatDetectedRef.current) {
+          const elapsed = audioTimestamp() - beatStartedAtRef.current
           const detectionWindow = Math.min(800, (60000 / bpmRef.current) * 0.75)
           const threshold = Math.max(3.5, noiseFloorRef.current + 3)
           const onset = guitarEnergy - previousGuitarEnergyRef.current
@@ -306,7 +317,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
             chordAnalysisTargetRef.current = targetChord
             setAnalyzedChord(targetChord)
             setEmStatus('analyzing')
-            chordAnalysisDueRef.current = performance.now() + 140
+            chordAnalysisDueRef.current = audioTimestamp() + 140
           }
         }
         previousGuitarEnergyRef.current = guitarEnergy
@@ -342,6 +353,18 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
       inline: 'center',
     })
   }, [activeChord, running])
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      exerciseScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+      questionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [question])
+
+  useEffect(() => {
+    if (!finished && !failed) return
+    requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }, [failed, finished])
 
   useEffect(() => () => {
     if (metronomeRef.current) clearInterval(metronomeRef.current)
@@ -400,6 +423,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     }
 
     setPhase('practice')
+    focusPractice()
   }
 
   const finishRound = async () => {
@@ -440,7 +464,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
 
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label={`Exercício ${title}`}>
-      <div className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.5rem] border border-cyan-300/20 bg-[#0a1528] p-4 shadow-2xl shadow-black/60 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem] sm:p-7">
+      <div ref={exerciseScrollRef} className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.5rem] border border-cyan-300/20 bg-[#0a1528] p-4 shadow-2xl shadow-black/60 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem] sm:p-7">
         <div className="flex items-center justify-between">
           <div><p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-cyan-300">{title}</p><p className="mt-1 text-xs text-slate-500">{phase === 'quiz' ? 'Parte 1 · Perguntas' : 'Parte 2 · Prática no violão'}</p></div>
           <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full border border-white/10 text-slate-400 hover:text-white" aria-label="Fechar"><X className="size-4" /></button>
@@ -452,7 +476,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               <div className="flex gap-1">{questions.map((_, index) => <span key={index} className={`h-1.5 w-12 rounded-full ${index <= question ? 'bg-cyan-300' : 'bg-white/10'}`} />)}</div>
               <div className="flex items-center gap-1 text-xs text-rose-300"><Heart className="size-4 fill-current" /> {lives}</div>
             </div>
-            <h3 className="mt-7 font-display text-2xl font-semibold">{questions[question].prompt}</h3>
+            <h3 ref={questionRef} className="mt-7 scroll-mt-4 font-display text-2xl font-semibold">{questions[question].prompt}</h3>
             <div className="mt-6 grid gap-3">
               {questions[question].options.map((option) => (
                 <button key={option} type="button" disabled={saving} onClick={() => void answer(option)} className={`rounded-2xl border px-4 py-3 text-left text-sm font-semibold transition ${wrongAnswer === option ? 'border-rose-400/50 bg-rose-400/10 text-rose-200' : 'border-white/10 bg-white/[0.035] hover:border-cyan-300/40 hover:bg-cyan-300/[0.07]'}`}>{option}</button>
@@ -481,11 +505,12 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                 {[1, 2, 3, 4].map((count) => {
                   const confirmed = beat === count && beatHit
                   const direction = strumPattern[count - 1] ?? 'down'
-                  return <span key={count} className={`grid size-10 place-items-center rounded-full border text-xs font-bold transition ${confirmed ? 'scale-110 border-emerald-200 bg-emerald-300 text-[#07101f]' : beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{confirmed ? <Check className="size-4" /> : <span><strong className="block text-sm leading-3">{direction === 'up' ? '↑' : '↓'}</strong><small className="text-[8px]">{count}</small></span>}</span>
+                  const ghost = direction === 'ghost-up'
+                  return <span key={count} className={`grid size-10 place-items-center rounded-full border text-xs font-bold transition ${confirmed ? 'scale-110 border-emerald-200 bg-emerald-300 text-[#07101f]' : beat === count ? `scale-110 ${ghost ? 'border-dashed border-violet-200 bg-violet-300/15 text-violet-100' : 'border-cyan-200 bg-cyan-300 text-[#07101f]'}` : ghost ? 'border-dashed border-violet-300/30 bg-violet-300/[0.04] text-violet-300/60' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{confirmed ? <Check className="size-4" /> : <span><strong className="block text-sm leading-3">{direction === 'down' ? '↓' : '↑'}</strong><small className="text-[8px]">{ghost ? 'sem som' : count}</small></span>}</span>
                 })}
               </div>
               {countdown !== null && <div className="mx-auto mt-3 grid size-16 animate-pulse place-items-center rounded-full border-2 border-amber-200/60 bg-amber-300/15 font-display text-4xl font-bold text-amber-200" aria-live="assertive">{countdown}</div>}
-              <p className="mt-3 text-xs font-semibold text-cyan-200">{activeStrum === 'up' ? '↑ Agora, toque para cima' : '↓ Agora, toque para baixo'}</p>
+              <p className={`mt-3 text-xs font-semibold ${activeStrum === 'ghost-up' ? 'text-violet-200' : 'text-cyan-200'}`}>{activeStrum === 'ghost-up' ? '↑ Suba a mão sem tocar nas cordas' : activeStrum === 'up' ? '↑ Agora, toque para cima' : '↓ Agora, toque para baixo'}</p>
               {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
               {micStatus === 'active' && (
                 <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>
@@ -536,11 +561,11 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
         )}
 
         {failed && (
-          <div className="py-10 text-center"><Heart className="mx-auto size-10 text-rose-300" /><h3 className="mt-4 font-display text-3xl font-semibold">Quase lá!</h3><p className="mt-2 text-sm text-slate-400">Revise as cifras e tente novamente.</p><button type="button" onClick={restart} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#07101f]"><RotateCcw className="size-4" /> Tentar novamente</button></div>
+          <div ref={resultRef} className="py-10 text-center"><Heart className="mx-auto size-10 text-rose-300" /><h3 className="mt-4 font-display text-3xl font-semibold">Quase lá!</h3><p className="mt-2 text-sm text-slate-400">Revise as cifras e tente novamente.</p><button type="button" onClick={restart} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#07101f]"><RotateCcw className="size-4" /> Tentar novamente</button></div>
         )}
 
         {finished && (
-          <div className="py-10 text-center"><div className="flex justify-center gap-2">{[1, 2, 3].map((star) => <Star key={star} className={`size-9 ${star <= lives ? 'fill-amber-300 text-amber-300' : 'text-white/10'}`} />)}</div><h3 className="mt-5 font-display text-3xl font-semibold">Exercício concluído!</h3><p className="mt-2 text-sm text-slate-400">5 minutos de prática e XP foram registrados.</p><button type="button" onClick={onClose} className="mt-6 rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-[#07101f]">Voltar ao painel</button></div>
+          <div ref={resultRef} className="py-10 text-center"><div className="flex justify-center gap-2">{[1, 2, 3].map((star) => <Star key={star} className={`size-9 ${star <= lives ? 'fill-amber-300 text-amber-300' : 'text-white/10'}`} />)}</div><h3 className="mt-5 font-display text-3xl font-semibold">Exercício concluído!</h3><p className="mt-2 text-sm text-slate-400">5 minutos de prática e XP foram registrados.</p><button type="button" onClick={onClose} className="mt-6 rounded-xl bg-cyan-300 px-5 py-2.5 text-sm font-semibold text-[#07101f]">Voltar ao painel</button></div>
         )}
       </div>
     </div>
