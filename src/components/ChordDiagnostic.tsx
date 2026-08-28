@@ -25,6 +25,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
   const captureDueRef = useRef(0)
   const listenAfterRef = useRef(0)
   const analysisSamplesRef = useRef<ReturnType<typeof compareWithCalibration>[]>([])
+  const analysisFramesRef = useRef(0)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noiseFloorRef = useRef(2)
   const previousEnergyRef = useRef(0)
@@ -89,14 +90,16 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
           if (energy >= Math.max(6, noiseFloorRef.current + 5) && onset >= 2.2) {
             captureDueRef.current = timestamp + 150
             analysisSamplesRef.current = []
+            analysisFramesRef.current = 0
             setCaptureStatus('analyzing')
             setMessage('Ataque detectado. Verificando o som sustentado…')
           }
         } else if (timestamp >= captureDueRef.current) {
           const requested = requestedChordRef.current
           const comparison = compareWithCalibration(spectrum, context.sampleRate, analyser.fftSize, profile)
+          analysisFramesRef.current += 1
           if (comparison) analysisSamplesRef.current.push(comparison)
-          if (analysisSamplesRef.current.length < 4 && energy >= noiseFloorRef.current + 1.5) {
+          if (analysisFramesRef.current < 5) {
             captureDueRef.current = timestamp + 75
           } else {
             const captured = analysisSamplesRef.current
@@ -110,10 +113,18 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
             const averageConfidence = winnerSamples.length ? Math.round(winnerSamples.reduce((sum, item) => sum + (item?.confidence ?? 0), 0) / winnerSamples.length) : 0
             const averageScores = Object.fromEntries(calibrationChords.map((chord) => [chord, Math.round(captured.reduce((sum, item) => sum + (item?.scores.find((score) => score.chord === chord)?.confidence ?? 0), 0) / Math.max(1, captured.length))])) as Record<CalibrationChord, number>
             const orderedScores = Object.values(averageScores).toSorted((left, right) => right - left)
-            const stable = captured.length >= 3 && winner.count >= 3 && averageConfidence >= 75 && orderedScores[0] - orderedScores[1] >= 3
+            const requiredVotes = Math.max(2, Math.ceil(captured.length * 0.6))
+            const stable = captured.length >= 2 && winner.count >= requiredVotes && averageConfidence >= 68 && orderedScores[0] - orderedScores[1] >= 1
 
             if (!stable) {
-              setMessage('Som rejeitado: houve ruído ou o acorde não ficou estável. Tente novamente; esta tentativa não foi contada.')
+              const reason = captured.length < 2
+                ? 'o som terminou rápido demais'
+                : winner.count < requiredVotes
+                  ? 'as leituras não apontaram para o mesmo acorde'
+                  : averageConfidence < 68
+                    ? 'o som ficou pouco parecido com a calibração'
+                    : 'dois acordes ficaram parecidos demais'
+              setMessage(`Som rejeitado: ${reason}. Toque novamente e deixe as cordas soarem; esta tentativa não foi contada.`)
             } else {
               setResults((current) => [...current, { requested, identified: winner.chord, confidence: averageConfidence, scores: averageScores }])
               setMessage(winner.chord === requested ? `${requested} reconhecido corretamente.` : `O sistema identificou ${winner.chord} em vez de ${requested}.`)
@@ -136,6 +147,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
     armedRef.current = false
     captureDueRef.current = 0
     analysisSamplesRef.current = []
+    analysisFramesRef.current = 0
     setCaptureStatus('armed')
     setCountdown(3)
     setMessage(`Prepare o acorde ${requestedChord}. Toque somente depois da contagem.`)

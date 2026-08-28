@@ -65,6 +65,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
 - Diagnóstico protegido por contagem regressiva, limiar de ruído e validação do som sustentado em várias leituras.
 - Ruídos e capturas instáveis são rejeitados sem contabilizar uma tentativa.
+- A validação usa uma janela fixa de ataque e sustentação, com maioria consistente entre leituras válidas.
+- Quando uma captura é rejeitada, a interface informa se faltou sustentação, consistência, compatibilidade ou separação entre acordes.
 
 > O áudio não é gravado nem enviado ao servidor. O reconhecimento ainda é assistivo: resultados incertos não retiram vidas nem impedem a conclusão.
 
