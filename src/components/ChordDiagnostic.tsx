@@ -18,6 +18,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
   const [captureStatus, setCaptureStatus] = useState<'idle' | 'armed' | 'analyzing'>('idle')
   const [countdown, setCountdown] = useState<number | null>(null)
   const [message, setMessage] = useState('Ative o microfone para iniciar o diagnóstico.')
+  const [lastOutcome, setLastOutcome] = useState<'idle' | 'correct' | 'wrong' | 'rejected'>('idle')
   const frameRef = useRef<number | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const contextRef = useRef<AudioContext | null>(null)
@@ -125,9 +126,12 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
                     ? 'o som ficou pouco parecido com a calibração'
                     : 'dois acordes ficaram parecidos demais'
               setMessage(`Som rejeitado: ${reason}. Toque novamente e deixe as cordas soarem; esta tentativa não foi contada.`)
+              setLastOutcome('rejected')
             } else {
               setResults((current) => [...current, { requested, identified: winner.chord, confidence: averageConfidence, scores: averageScores }])
-              setMessage(winner.chord === requested ? `${requested} reconhecido corretamente.` : `O sistema identificou ${winner.chord} em vez de ${requested}.`)
+              const correct = winner.chord === requested
+              setLastOutcome(correct ? 'correct' : 'wrong')
+              setMessage(correct ? `Acerto — ${requested} reconhecido.` : `Acorde diferente — esperado ${requested}, identificado ${winner.chord}. Este teste foi registrado como erro.`)
             }
             requestAnimationFrame(followAction)
           }
@@ -149,6 +153,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
     analysisSamplesRef.current = []
     analysisFramesRef.current = 0
     setCaptureStatus('armed')
+    setLastOutcome('idle')
     setCountdown(3)
     setMessage(`Prepare o acorde ${requestedChord}. Toque somente depois da contagem.`)
 
@@ -174,6 +179,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
     setCountdown(null)
     setResults([])
     setCaptureStatus('idle')
+    setLastOutcome('idle')
     setMessage('Diagnóstico reiniciado. Prepare o acorde Em.')
     followAction()
   }
@@ -198,11 +204,11 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
 
           {!completed ? (
             <div className="game-card mt-5 rounded-2xl p-5 text-center">
-              <p className="text-xs text-slate-400">Acorde pedido · tentativa {chordAttempt} de {attemptsPerChord}</p><p className="mt-2 font-display text-6xl font-bold">{requestedChord}</p>{countdown !== null && <div aria-live="assertive" className="mx-auto mt-4 grid size-16 place-items-center rounded-full border-2 border-amber-200/60 bg-amber-300/15 font-display text-4xl font-bold text-amber-200">{countdown}</div>}<p aria-live="polite" className="mt-4 text-xs leading-5 text-slate-300">{message}</p>
-              <div className="mt-5 grid grid-cols-4 gap-2">{calibrationChords.map((chord) => <div key={chord} className="rounded-xl border border-white/10 bg-white/[0.025] p-2"><strong className="text-xs">{chord}</strong><span className="mt-1 block text-[9px] text-slate-500">{results.filter((result) => result.requested === chord).length}/{attemptsPerChord}</span></div>)}</div>
+              <p className="text-xs text-slate-400">Acorde pedido · teste {chordAttempt} de {attemptsPerChord}</p><p className="mt-2 font-display text-6xl font-bold">{requestedChord}</p>{countdown !== null && <div aria-live="assertive" className="mx-auto mt-4 grid size-16 place-items-center rounded-full border-2 border-amber-200/60 bg-amber-300/15 font-display text-4xl font-bold text-amber-200">{countdown}</div>}<p aria-live="polite" className={`mx-auto mt-4 max-w-md rounded-xl border px-3 py-2 text-xs font-semibold leading-5 ${lastOutcome === 'correct' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : lastOutcome === 'wrong' ? 'border-rose-300/30 bg-rose-300/10 text-rose-200' : lastOutcome === 'rejected' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-transparent text-slate-300'}`}>{message}</p>
+              <div className="mt-5 grid grid-cols-4 gap-2">{calibrationChords.map((chord) => { const chordResults = results.filter((result) => result.requested === chord); const correct = chordResults.filter((result) => result.identified === chord).length; return <div key={chord} className="rounded-xl border border-white/10 bg-white/[0.025] p-2"><strong className="text-xs">{chord}</strong><span className="mt-1 block text-[9px] text-slate-500">{chordResults.length}/{attemptsPerChord} testes</span>{chordResults.length > 0 && <span className={`mt-1 block text-[9px] ${correct === chordResults.length ? 'text-emerald-300' : 'text-rose-300'}`}>{correct} acertos</span>}</div> })}</div>
             </div>
           ) : (
-            <div className="game-card mt-5 rounded-2xl p-5"><div className="text-center"><Check className="mx-auto size-8 text-emerald-300" /><h3 className="mt-3 font-display text-3xl font-bold">Diagnóstico concluído</h3><p className="mt-2 text-sm text-slate-400">{correctResults} de {results.length} identificações corretas · {Math.round((correctResults / results.length) * 100)}% de acerto</p></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{calibrationChords.map((chord) => { const chordResults = results.filter((result) => result.requested === chord); const correct = chordResults.filter((result) => result.identified === chord).length; return <article key={chord} className={`rounded-xl border p-3 ${correct === attemptsPerChord ? 'border-emerald-300/30 bg-emerald-300/[0.07]' : 'border-amber-300/30 bg-amber-300/[0.07]'}`}><div className="flex items-center justify-between"><strong>{chord}</strong><span className="text-xs">{correct}/{attemptsPerChord} corretos</span></div><p className="mt-2 text-[10px] text-slate-400">{chordResults.map((result) => `${result.identified} ${result.confidence}%`).join(' · ')}</p></article> })}</div></div>
+            <div className="game-card mt-5 rounded-2xl p-5"><div className="text-center"><Check className="mx-auto size-8 text-emerald-300" /><h3 className="mt-3 font-display text-3xl font-bold">Diagnóstico concluído</h3><p className="mt-2 text-sm text-slate-400">{results.length} testes realizados · {correctResults} acertos · {Math.round((correctResults / results.length) * 100)}%</p></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{calibrationChords.map((chord) => { const chordResults = results.filter((result) => result.requested === chord); const correct = chordResults.filter((result) => result.identified === chord).length; return <article key={chord} className={`rounded-xl border p-3 ${correct === attemptsPerChord ? 'border-emerald-300/30 bg-emerald-300/[0.07]' : 'border-rose-300/30 bg-rose-300/[0.07]'}`}><div className="flex items-center justify-between"><strong>Pedido: {chord}</strong><span className="text-xs">{correct}/{attemptsPerChord} acertos</span></div><div className="mt-2 grid gap-1">{chordResults.map((result, index) => <p key={index} className={`text-[10px] ${result.identified === chord ? 'text-emerald-300' : 'text-rose-300'}`}>Teste {index + 1}: identificado {result.identified} · {result.confidence}% {result.identified === chord ? '· acerto' : '· erro'}</p>)}</div></article> })}</div></div>
           )}
 
           {!completed && micStatus !== 'active' ? <button ref={actionRef} type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">{micStatus === 'requesting' ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}{micStatus === 'requesting' ? 'Abrindo microfone…' : 'Ativar microfone'}</button> : !completed ? <button ref={actionRef} type="button" disabled={captureStatus !== 'idle'} onClick={armCapture} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60"><Mic className="size-4" />{countdown !== null ? `Prepare-se · ${countdown}` : captureStatus === 'armed' ? 'Aguardando sua batida…' : captureStatus === 'analyzing' ? 'Analisando som sustentado…' : `Preparar teste de ${requestedChord}`}</button> : null}

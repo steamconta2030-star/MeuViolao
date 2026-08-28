@@ -67,6 +67,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Ruídos e capturas instáveis são rejeitados sem contabilizar uma tentativa.
 - A validação usa uma janela fixa de ataque e sustentação, com maioria consistente entre leituras válidas.
 - Quando uma captura é rejeitada, a interface informa se faltou sustentação, consistência, compatibilidade ou separação entre acordes.
+- O diagnóstico diferencia visualmente testes realizados, acertos, acordes diferentes e capturas rejeitadas.
+- Um acorde diferente é registrado como erro do teste, permitindo medir a capacidade real de diferenciação.
 
 > O áudio não é gravado nem enviado ao servidor. O reconhecimento ainda é assistivo: resultados incertos não retiram vidas nem impedem a conclusão.
 
