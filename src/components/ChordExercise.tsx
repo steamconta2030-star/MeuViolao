@@ -29,6 +29,19 @@ const exercises = {
       { chords: ['Em', 'G', 'C', 'D'], targetCycles: 4, title: 'Circuito completo', instruction: 'Mantenha cada acorde por quatro tempos e complete quatro voltas.' },
     ],
   },
+  'essential-rhythm': {
+    title: 'Mão direita e pulsação',
+    questions: [
+      { prompt: 'No começo, o que é mais importante?', options: ['Manter o pulso', 'Tocar muito rápido', 'Bater com força'], answer: 'Manter o pulso' },
+      { prompt: 'Enquanto toca para baixo, como a mão deve se mover?', options: ['Relaxada e contínua', 'Travada no violão', 'O mais longe possível'], answer: 'Relaxada e contínua' },
+      { prompt: 'Qual movimento vem depois da batida para baixo?', options: ['A subida da mão', 'Parar por completo', 'Trocar de acorde'], answer: 'A subida da mão' },
+    ],
+    rounds: [
+      { chords: ['Em'], strums: ['down', 'down', 'down', 'down'], targetCycles: 4, title: 'Pulso firme', instruction: 'Toque quatro batidas para baixo no Em. Use 40 BPM e deixe a mão relaxada.' },
+      { chords: ['Em'], strums: ['down', 'down', 'down', 'down'], targetCycles: 4, title: 'Movimento contínuo', instruction: 'Toque para baixo em cada número e faça a mão voltar para cima sem tocar nas cordas.' },
+      { chords: ['Em'], strums: ['down', 'up', 'down', 'up'], targetCycles: 6, title: 'Primeiro baixo e cima', instruction: 'Alterne devagar: baixo, cima, baixo, cima. Continue no Em para focar somente na mão direita.' },
+    ],
+  },
 } as const
 
 type ExerciseId = keyof typeof exercises
@@ -419,6 +432,12 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
     setSaving(false)
   }
 
+  const activePracticeRound = practiceRounds[round]
+  const strumPattern = 'strums' in activePracticeRound
+    ? activePracticeRound.strums
+    : ['down', 'down', 'down', 'down'] as const
+  const activeStrum = strumPattern[Math.max(0, beat - 1)] ?? 'down'
+
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-[#030815]/85 p-2 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label={`Exercício ${title}`}>
       <div className="max-h-[calc(100dvh-1rem)] w-full max-w-lg overflow-y-auto rounded-[1.5rem] border border-cyan-300/20 bg-[#0a1528] p-4 shadow-2xl shadow-black/60 sm:max-h-[calc(100dvh-2rem)] sm:rounded-[2rem] sm:p-7">
@@ -461,11 +480,12 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
               <div className="mt-4 flex justify-center gap-2" aria-label={beat ? `Tempo ${beat} de 4` : 'Contagem aguardando início'}>
                 {[1, 2, 3, 4].map((count) => {
                   const confirmed = beat === count && beatHit
-                  return <span key={count} className={`grid size-8 place-items-center rounded-full border text-xs font-bold transition ${confirmed ? 'scale-110 border-emerald-200 bg-emerald-300 text-[#07101f]' : beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{confirmed ? <Check className="size-4" /> : count}</span>
+                  const direction = strumPattern[count - 1] ?? 'down'
+                  return <span key={count} className={`grid size-10 place-items-center rounded-full border text-xs font-bold transition ${confirmed ? 'scale-110 border-emerald-200 bg-emerald-300 text-[#07101f]' : beat === count ? 'scale-110 border-cyan-200 bg-cyan-300 text-[#07101f]' : 'border-white/10 bg-white/[0.03] text-slate-500'}`}>{confirmed ? <Check className="size-4" /> : <span><strong className="block text-sm leading-3">{direction === 'up' ? '↑' : '↓'}</strong><small className="text-[8px]">{count}</small></span>}</span>
                 })}
               </div>
               {countdown !== null && <div className="mx-auto mt-3 grid size-16 animate-pulse place-items-center rounded-full border-2 border-amber-200/60 bg-amber-300/15 font-display text-4xl font-bold text-amber-200" aria-live="assertive">{countdown}</div>}
-              <p className="mt-3 text-xs font-semibold text-cyan-200">↓ Uma batida para baixo em cada número</p>
+              <p className="mt-3 text-xs font-semibold text-cyan-200">{activeStrum === 'up' ? '↑ Agora, toque para cima' : '↓ Agora, toque para baixo'}</p>
               {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
               {micStatus === 'active' && (
                 <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>

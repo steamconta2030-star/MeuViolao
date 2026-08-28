@@ -3,7 +3,7 @@ import { Check, Guitar, LockKeyhole, Map as MapIcon, Play, Star } from 'lucide-r
 const stages = [
   { id: 'first-chords', prerequisite: null, available: true, title: 'Primeiros acordes', detail: 'Em, G, C e D para começar a tocar.' },
   { id: 'clean-changes', prerequisite: 'first-chords', available: true, title: 'Trocas limpas', detail: 'Mude de acorde sem perder o tempo.' },
-  { id: 'essential-rhythm', prerequisite: 'clean-changes', available: false, title: 'Ritmo essencial', detail: 'Batidas simples e pulsação constante.' },
+  { id: 'essential-rhythm', prerequisite: 'clean-changes', available: true, title: 'Mão direita e pulsação', detail: 'Pulso firme e primeira alternância entre baixo e cima.' },
   { id: 'first-song', prerequisite: 'essential-rhythm', available: false, title: 'Primeira música', detail: 'Junte acordes e ritmo em uma canção.' },
   { id: 'harmonic-field', prerequisite: 'first-song', available: false, title: 'Campo harmônico', detail: 'Entenda como os acordes se conectam.' },
 ]

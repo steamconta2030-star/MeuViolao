@@ -21,6 +21,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Exercícios com perguntas, vidas e estrelas.
 - Rodadas práticas estruturadas por compassos e voltas completas.
 - Progressão inicial: Em → G → C → D.
+- Lição de mão direita com pulso firme, movimento contínuo e primeira alternância entre baixo e cima.
 - Diagramas com cordas abertas, cordas abafadas e numeração dos dedos.
 
 ### Identidade visual

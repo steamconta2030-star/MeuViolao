@@ -9,7 +9,7 @@ import { GuitarTuner } from './GuitarTuner'
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
-  const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | null>(null)
+  const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | 'essential-rhythm' | null>(null)
   const [tunerOpen, setTunerOpen] = useState(true)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -47,7 +47,7 @@ export function Dashboard({ user }: { user: User }) {
     feedbackTimer.current = setTimeout(() => setFeedback(null), 2800)
   }
 
-  const handleExerciseComplete = async (exerciseId: 'first-chords' | 'clean-changes', stars: number) => {
+  const handleExerciseComplete = async (exerciseId: 'first-chords' | 'clean-changes' | 'essential-rhythm', stars: number) => {
     const progressSaved = await saveExerciseProgress(exerciseId, stars)
     if (!progressSaved) return false
     const reward = await addPractice(5, 'exercise')
@@ -159,7 +159,7 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
         <Journey progress={exerciseProgress} onStart={(exerciseId) => {
-          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes') setActiveExercise(exerciseId)
+          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes' || exerciseId === 'essential-rhythm') setActiveExercise(exerciseId)
         }} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
