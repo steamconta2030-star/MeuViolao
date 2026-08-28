@@ -11,6 +11,7 @@ export type ChordCalibrationProfile = {
 }
 
 const storageKey = (userId: string) => `meu-violao:chord-calibration:v1:${userId}`
+const diagnosticQueueKey = (userId: string) => `meu-violao:chord-diagnostics-queue:v1:${userId}`
 
 export const expectedPitchClasses: Record<CalibrationChord, number[]> = {
   Em: [4, 7, 11],
@@ -98,8 +99,22 @@ export const analyzeWithCalibration = (
   }
 }
 
-export const saveChordCalibration = (profile: ChordCalibrationProfile) => {
+const saveChordCalibrationLocally = (profile: ChordCalibrationProfile) => {
   localStorage.setItem(storageKey(profile.userId), JSON.stringify(profile))
+}
+
+export const saveChordCalibration = async (profile: ChordCalibrationProfile) => {
+  saveChordCalibrationLocally(profile)
+  if (!supabase) return false
+  const { error } = await supabase.from('chord_calibrations').upsert({
+    user_id: profile.userId,
+    profile_version: profile.version,
+    samples_per_chord: profile.samplesPerChord,
+    signatures: profile.signatures,
+    calibrated_at: profile.createdAt,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+  return !error
 }
 
 export const loadChordCalibration = (userId: string): ChordCalibrationProfile | null => {
@@ -116,3 +131,75 @@ export const loadChordCalibration = (userId: string): ChordCalibrationProfile | 
 }
 
 export const removeChordCalibration = (userId: string) => localStorage.removeItem(storageKey(userId))
+
+export const syncChordCalibration = async (userId: string) => {
+  const local = loadChordCalibration(userId)
+  if (!supabase) return local
+  const { data, error } = await supabase
+    .from('chord_calibrations')
+    .select('profile_version, samples_per_chord, signatures, calibrated_at')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) return local
+
+  if (!data) {
+    if (local) await saveChordCalibration(local)
+    return local
+  }
+  if (data.profile_version !== 1) return local
+
+  const remote: ChordCalibrationProfile = {
+    version: data.profile_version as 1,
+    userId,
+    createdAt: data.calibrated_at,
+    samplesPerChord: data.samples_per_chord,
+    signatures: data.signatures as Record<CalibrationChord, ChordSignature>,
+  }
+  if (!calibrationChords.every((chord) => remote.signatures[chord]?.length === 12)) return local
+
+  if (!local || new Date(remote.createdAt).getTime() > new Date(local.createdAt).getTime()) {
+    saveChordCalibrationLocally(remote)
+    return remote
+  }
+  if (new Date(local.createdAt).getTime() > new Date(remote.createdAt).getTime()) await saveChordCalibration(local)
+  return local
+}
+
+export const saveChordDiagnostic = async (userId: string, results: unknown[], correctTests: number) => {
+  if (results.length === 0) return false
+  const record = {
+    user_id: userId,
+    calibration_version: 1,
+    total_tests: results.length,
+    correct_tests: correctTests,
+    accuracy: Math.round((correctTests / results.length) * 100),
+    results,
+    created_at: new Date().toISOString(),
+  }
+  if (supabase) {
+    const { error } = await supabase.from('chord_diagnostics').insert(record)
+    if (!error) return true
+  }
+  try {
+    const queued = JSON.parse(localStorage.getItem(diagnosticQueueKey(userId)) ?? '[]') as typeof record[]
+    localStorage.setItem(diagnosticQueueKey(userId), JSON.stringify([...queued, record]))
+  } catch {
+    return false
+  }
+  return false
+}
+
+export const flushQueuedDiagnostics = async (userId: string) => {
+  if (!supabase) return false
+  try {
+    const queued = JSON.parse(localStorage.getItem(diagnosticQueueKey(userId)) ?? '[]') as unknown[]
+    if (queued.length === 0) return true
+    const { error } = await supabase.from('chord_diagnostics').insert(queued)
+    if (error) return false
+    localStorage.removeItem(diagnosticQueueKey(userId))
+    return true
+  } catch {
+    return false
+  }
+}
+import { supabase } from './supabase'

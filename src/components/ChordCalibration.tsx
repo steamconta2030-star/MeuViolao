@@ -6,7 +6,7 @@ const requiredSamples = 5
 
 const emptySamples = (): Record<CalibrationChord, ChordSignature[]> => ({ Em: [], G: [], C: [], D: [] })
 
-export function ChordCalibration({ userId, onClose, onSaved }: { userId: string; onClose: () => void; onSaved: () => void }) {
+export function ChordCalibration({ userId, onClose, onSaved }: { userId: string; onClose: () => void; onSaved: (synced: boolean) => void }) {
   const [chordIndex, setChordIndex] = useState(0)
   const [samples, setSamples] = useState<Record<CalibrationChord, ChordSignature[]>>(emptySamples)
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'>('idle')
@@ -128,9 +128,9 @@ export function ChordCalibration({ userId, onClose, onSaved }: { userId: string;
     followAction()
   }
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     setSaving(true)
-    saveChordCalibration({
+    const synced = await saveChordCalibration({
       version: 1,
       userId,
       createdAt: new Date().toISOString(),
@@ -143,7 +143,7 @@ export function ChordCalibration({ userId, onClose, onSaved }: { userId: string;
       },
     })
     setSaving(false)
-    onSaved()
+    onSaved(synced)
   }
 
   const reset = () => {
@@ -179,7 +179,7 @@ export function ChordCalibration({ userId, onClose, onSaved }: { userId: string;
           {micStatus !== 'active' ? (
             <button ref={actionRef} type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">{micStatus === 'requesting' ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}{micStatus === 'requesting' ? 'Abrindo microfone…' : 'Ativar microfone'}</button>
           ) : chordComplete ? (
-            chordIndex < calibrationChords.length - 1 ? <button ref={actionRef} type="button" onClick={nextChord} className="game-button mt-5 w-full rounded-xl px-4 py-3 text-sm font-bold">Próximo acorde · {calibrationChords[chordIndex + 1]}</button> : <button ref={actionRef} type="button" disabled={!allComplete || saving} onClick={saveProfile} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"><Check className="size-4" /> Salvar calibração pessoal</button>
+            chordIndex < calibrationChords.length - 1 ? <button ref={actionRef} type="button" onClick={nextChord} className="game-button mt-5 w-full rounded-xl px-4 py-3 text-sm font-bold">Próximo acorde · {calibrationChords[chordIndex + 1]}</button> : <button ref={actionRef} type="button" disabled={!allComplete || saving} onClick={() => void saveProfile()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"><Check className="size-4" /> {saving ? 'Salvando perfil…' : 'Salvar calibração pessoal'}</button>
           ) : (
             <button ref={actionRef} type="button" disabled={captureStatus === 'armed'} onClick={armCapture} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60"><Mic className="size-4" />{captureStatus === 'armed' ? 'Aguardando o acorde…' : `Preparar amostra ${activeSamples.length + 1}`}</button>
           )}

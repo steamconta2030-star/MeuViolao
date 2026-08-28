@@ -7,7 +7,7 @@ import { ChordExercise } from './ChordExercise'
 import { GuitarTuner } from './GuitarTuner'
 import { ChordCalibration } from './ChordCalibration'
 import { ChordDiagnostic } from './ChordDiagnostic'
-import { loadChordCalibration } from '../lib/chord-calibration'
+import { flushQueuedDiagnostics, loadChordCalibration, syncChordCalibration } from '../lib/chord-calibration'
 
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
@@ -22,6 +22,15 @@ export function Dashboard({ user }: { user: User }) {
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
   }, [])
+
+  useEffect(() => {
+    let active = true
+    void syncChordCalibration(user.id).then((calibration) => {
+      if (active) setCalibrationReady(Boolean(calibration))
+    })
+    void flushQueuedDiagnostics(user.id)
+    return () => { active = false }
+  }, [user.id])
 
   if (loading) {
     return <div className="grid min-h-96 place-items-center text-sm text-slate-400"><LoaderCircle className="mr-2 inline size-4 animate-spin" />Carregando painel…</div>
@@ -194,10 +203,10 @@ export function Dashboard({ user }: { user: User }) {
         <ChordCalibration
           userId={user.id}
           onClose={() => setCalibrationOpen(false)}
-          onSaved={() => {
+          onSaved={(synced) => {
             setCalibrationReady(true)
             setCalibrationOpen(false)
-            setFeedback({ title: 'Calibração concluída!', detail: 'Seu perfil pessoal já será usado nos exercícios.' })
+            setFeedback({ title: 'Calibração concluída!', detail: synced ? 'Perfil salvo na conta e neste aparelho.' : 'Perfil salvo neste aparelho; sincronizaremos quando houver conexão.' })
           }}
         />
       )}

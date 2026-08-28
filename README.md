@@ -91,8 +91,10 @@ A primeira versão da calibração pessoal está implementada para adaptar o rec
 
 - O áudio bruto não será gravado nem enviado ao servidor.
 - Serão guardadas somente características numéricas das frequências captadas.
-- A primeira versão salvará o perfil localmente no aparelho.
-- Uma futura sincronização entre aparelhos só será adicionada com consentimento claro do usuário.
+- O perfil é salvo no Supabase por usuário e mantido também como cache local no aparelho.
+- O aplicativo carrega o cache imediatamente e sincroniza a versão mais recente com a conta.
+- Os resumos dos diagnósticos são salvos na conta; nenhuma gravação é armazenada.
+- Sem conexão, o perfil local continua disponível para o reconhecimento.
 
 ### Critérios iniciais de qualidade
 
