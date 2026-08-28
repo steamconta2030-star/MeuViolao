@@ -216,7 +216,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
           {micStatus === 'unsupported' && <p role="alert" className="mt-3 text-xs text-amber-300">Este navegador não disponibilizou o microfone.</p>}
 
           <button ref={continueRef} type="button" onClick={onContinue} className="mt-4 w-full scroll-mb-4 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5">
-            {tunedStrings.size === 6 ? 'Violão afinado · iniciar exercício' : 'Continuar para o exercício'}
+            {tunedStrings.size === 6 ? 'Violão afinado · ir para o painel' : 'Continuar para o painel'}
           </button>
         </div>
       </section>

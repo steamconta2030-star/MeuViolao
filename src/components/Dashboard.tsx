@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { Check, CheckCircle2, Clock3, Flame, ListChecks, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
+import { Check, CheckCircle2, Clock3, Flame, Guitar, ListChecks, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
 import { usePracticeData } from '../hooks/use-practice-data'
 import { Journey } from './Journey'
 import { ChordExercise } from './ChordExercise'
@@ -10,7 +10,7 @@ export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
   const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | null>(null)
-  const [pendingExercise, setPendingExercise] = useState<'first-chords' | 'clean-changes' | null>(null)
+  const [tunerOpen, setTunerOpen] = useState(true)
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -66,7 +66,12 @@ export function Dashboard({ user }: { user: User }) {
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-200">Meu painel</p>
         </div>
         <h2 className="mt-3 font-display text-3xl font-bold tracking-tight">Prática de hoje</h2>
-        <p className="mt-2 text-sm text-slate-400">{user.email}</p>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-slate-400">{user.email}</p>
+          <button type="button" onClick={() => setTunerOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-300/30 hover:text-white">
+            <Guitar className="size-3.5" /> Afinador
+          </button>
+        </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <article className={`game-card rounded-2xl p-4 transition ${summary.todayGoalCompleted ? 'border-emerald-400/40 bg-emerald-400/[0.09]' : 'border-cyan-300/20'}`}>
@@ -154,7 +159,7 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
         <Journey progress={exerciseProgress} onStart={(exerciseId) => {
-          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes') setPendingExercise(exerciseId)
+          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes') setActiveExercise(exerciseId)
         }} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
@@ -167,13 +172,10 @@ export function Dashboard({ user }: { user: User }) {
         </div>
       )}
       {activeExercise && <ChordExercise exerciseId={activeExercise} onClose={() => setActiveExercise(null)} onComplete={(stars) => handleExerciseComplete(activeExercise, stars)} />}
-      {pendingExercise && (
+      {tunerOpen && (
         <GuitarTuner
-          onClose={() => setPendingExercise(null)}
-          onContinue={() => {
-            setActiveExercise(pendingExercise)
-            setPendingExercise(null)
-          }}
+          onClose={() => setTunerOpen(false)}
+          onContinue={() => setTunerOpen(false)}
         />
       )}
     </div>
