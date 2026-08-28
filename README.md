@@ -62,6 +62,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Reconhecimento experimental do acorde destacado entre Em, G, C e D.
 - Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
+- Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
 
 > O áudio não é gravado nem enviado ao servidor. O reconhecimento ainda é assistivo: resultados incertos não retiram vidas nem impedem a conclusão.
 
@@ -100,6 +101,7 @@ A primeira versão da calibração pessoal está implementada para adaptar o rec
 - Tela de captura guiada concluída.
 - Perfil local com as quatro assinaturas concluído.
 - Comparação pessoal integrada aos exercícios.
+- Diagnóstico do perfil integrado ao painel, sem alterar XP ou progresso.
 - Próximo passo: testar e ajustar os limites em diferentes celulares, violões e ambientes.
 
 ## Tecnologias
@@ -177,6 +179,7 @@ A branch `main` está conectada à Vercel. Atualizações funcionais são agrupa
 
 - Testar e refinar a calibração pessoal de Em, G, C e D com som real.
 - Validar e calibrar o afinador em diferentes celulares e ambientes.
+- Refinar os limites de reconhecimento com os resultados do diagnóstico pessoal.
 - Transformar o reconhecimento em feedback de ritmo e acorde.
 - Adicionar novos padrões de batida de forma progressiva.
 - Expandir a jornada com novas etapas e exercícios.

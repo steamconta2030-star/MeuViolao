@@ -59,6 +59,27 @@ const cosineSimilarity = (left: ChordSignature, right: ChordSignature) => {
   return dot / Math.sqrt(leftLength * rightLength)
 }
 
+export const compareWithCalibration = (
+  spectrum: Uint8Array,
+  sampleRate: number,
+  fftSize: number,
+  profile: ChordCalibrationProfile,
+) => {
+  const extracted = extractChordSignature(spectrum, sampleRate, fftSize)
+  if (!extracted) return null
+
+  const scores = calibrationChords.map((chord) => ({
+    chord,
+    score: cosineSimilarity(extracted.signature, profile.signatures[chord]),
+    confidence: Math.max(0, Math.min(100, Math.round(cosineSimilarity(extracted.signature, profile.signatures[chord]) * 100))),
+  }))
+  let identified = scores[0]
+  for (let index = 1; index < scores.length; index += 1) {
+    if (scores[index].score > identified.score) identified = scores[index]
+  }
+  return { scores, identified: identified.chord, confidence: identified.confidence }
+}
+
 export const analyzeWithCalibration = (
   spectrum: Uint8Array,
   sampleRate: number,
@@ -66,13 +87,9 @@ export const analyzeWithCalibration = (
   requestedChord: CalibrationChord,
   profile: ChordCalibrationProfile,
 ) => {
-  const extracted = extractChordSignature(spectrum, sampleRate, fftSize)
-  if (!extracted) return { matched: false, confidence: 0 }
-
-  const scores = calibrationChords.map((chord) => ({
-    chord,
-    score: cosineSimilarity(extracted.signature, profile.signatures[chord]),
-  }))
+  const comparison = compareWithCalibration(spectrum, sampleRate, fftSize, profile)
+  if (!comparison) return { matched: false, confidence: 0 }
+  const { scores } = comparison
   const requestedScore = scores.find((item) => item.chord === requestedChord)?.score ?? 0
   const bestOtherScore = Math.max(...scores.filter((item) => item.chord !== requestedChord).map((item) => item.score))
   return {

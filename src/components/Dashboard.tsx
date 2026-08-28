@@ -6,6 +6,7 @@ import { Journey } from './Journey'
 import { ChordExercise } from './ChordExercise'
 import { GuitarTuner } from './GuitarTuner'
 import { ChordCalibration } from './ChordCalibration'
+import { ChordDiagnostic } from './ChordDiagnostic'
 import { loadChordCalibration } from '../lib/chord-calibration'
 
 export function Dashboard({ user }: { user: User }) {
@@ -14,6 +15,7 @@ export function Dashboard({ user }: { user: User }) {
   const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | 'essential-rhythm' | null>(null)
   const [tunerOpen, setTunerOpen] = useState(true)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
+  const [diagnosticOpen, setDiagnosticOpen] = useState(false)
   const [calibrationReady, setCalibrationReady] = useState(() => Boolean(loadChordCalibration(user.id)))
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -79,6 +81,7 @@ export function Dashboard({ user }: { user: User }) {
             <button type="button" onClick={() => setCalibrationOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-violet-200 transition hover:border-violet-300/30 hover:text-white">
               {calibrationReady ? <Check className="size-3.5 text-emerald-300" /> : <SlidersHorizontal className="size-3.5" />} {calibrationReady ? 'Acordes calibrados' : 'Calibrar acordes'}
             </button>
+            {calibrationReady && <button type="button" onClick={() => setDiagnosticOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-emerald-200 transition hover:border-emerald-300/30 hover:text-white"><ListChecks className="size-3.5" /> Testar reconhecimento</button>}
           </div>
         </div>
 
@@ -195,6 +198,16 @@ export function Dashboard({ user }: { user: User }) {
             setCalibrationReady(true)
             setCalibrationOpen(false)
             setFeedback({ title: 'Calibração concluída!', detail: 'Seu perfil pessoal já será usado nos exercícios.' })
+          }}
+        />
+      )}
+      {diagnosticOpen && (
+        <ChordDiagnostic
+          userId={user.id}
+          onClose={() => setDiagnosticOpen(false)}
+          onRecalibrate={() => {
+            setDiagnosticOpen(false)
+            setCalibrationOpen(true)
           }}
         />
       )}
