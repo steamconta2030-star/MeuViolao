@@ -8,20 +8,20 @@ function App() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#07101f] text-white">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(34,211,238,0.12),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(139,92,246,0.16),transparent_34%)]" />
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(34,211,238,0.17),transparent_25%),radial-gradient(circle_at_88%_14%,rgba(139,92,246,0.2),transparent_28%),linear-gradient(180deg,#07101f_0%,#09152a_55%,#07101f_100%)]" />
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between border-b border-white/10 pb-5">
+        <header className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.035] p-3 shadow-lg shadow-black/10 backdrop-blur sm:p-4">
           <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-gradient-to-br from-cyan-400 to-violet-500 shadow-[0_10px_35px_rgba(34,211,238,0.22)]">
+            <div className="grid size-11 -rotate-3 place-items-center rounded-2xl border border-white/20 bg-gradient-to-br from-cyan-300 via-blue-400 to-violet-500 shadow-[0_5px_0_#3730a3]">
               <Guitar className="size-5" />
             </div>
             <div>
-              <strong className="font-display text-lg font-semibold">Meu Violão</strong>
-              <p className="text-xs text-slate-400">Prática pessoal</p>
+              <strong className="font-display text-lg font-bold tracking-tight">Meu Violão</strong>
+              <p className="text-xs text-cyan-100/60">Sua jornada musical</p>
             </div>
           </div>
           {session ? (
-            <button type="button" onClick={signOut} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 transition hover:border-cyan-300/30 hover:text-white">
+            <button type="button" onClick={signOut} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-slate-300 transition hover:border-cyan-300/30 hover:text-white">
               <LogOut className="size-3.5" /> Sair
             </button>
           ) : (
