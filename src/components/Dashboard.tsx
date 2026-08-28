@@ -9,15 +9,29 @@ import { ChordCalibration } from './ChordCalibration'
 import { ChordDiagnostic } from './ChordDiagnostic'
 import { flushQueuedDiagnostics, loadChordCalibration, syncChordCalibration } from '../lib/chord-calibration'
 
+type ExerciseId = 'first-chords' | 'clean-changes' | 'essential-rhythm'
+
+const lessonTunerStorageKey = (userId: string) => `meu-violao:lesson-tuner-shown:v1:${userId}`
+
+const hasSeenLessonTuner = (userId: string) => {
+  try {
+    return localStorage.getItem(lessonTunerStorageKey(userId)) === 'true'
+  } catch {
+    return false
+  }
+}
+
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
-  const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | 'essential-rhythm' | null>(null)
-  const [tunerOpen, setTunerOpen] = useState(true)
+  const [activeExercise, setActiveExercise] = useState<ExerciseId | null>(null)
+  const [pendingExercise, setPendingExercise] = useState<ExerciseId | null>(null)
+  const [tunerOpen, setTunerOpen] = useState(false)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
   const [diagnosticOpen, setDiagnosticOpen] = useState(false)
   const [calibrationReady, setCalibrationReady] = useState(() => Boolean(loadChordCalibration(user.id)))
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lessonTunerSeenRef = useRef(hasSeenLessonTuner(user.id))
 
   useEffect(() => () => {
     if (feedbackTimer.current) clearTimeout(feedbackTimer.current)
@@ -73,6 +87,28 @@ export function Dashboard({ user }: { user: User }) {
     return true
   }
 
+  const startExercise = (exerciseId: ExerciseId) => {
+    if (lessonTunerSeenRef.current) {
+      setActiveExercise(exerciseId)
+      return
+    }
+    setPendingExercise(exerciseId)
+    setTunerOpen(true)
+  }
+
+  const closeTuner = () => {
+    setTunerOpen(false)
+    if (!pendingExercise) return
+    try {
+      localStorage.setItem(lessonTunerStorageKey(user.id), 'true')
+    } catch {
+      // The current session still remembers the introduction if storage is unavailable.
+    }
+    lessonTunerSeenRef.current = true
+    setActiveExercise(pendingExercise)
+    setPendingExercise(null)
+  }
+
   return (
     <div className="game-shell rounded-[2rem] p-3 backdrop-blur sm:p-5">
       <div className="rounded-[1.6rem] border border-white/[0.07] bg-[#09162a]/85 p-4 sm:p-7">
@@ -84,7 +120,7 @@ export function Dashboard({ user }: { user: User }) {
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-400">{user.email}</p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setTunerOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-300/30 hover:text-white">
+            <button type="button" onClick={() => { setPendingExercise(null); setTunerOpen(true) }} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-300/30 hover:text-white">
               <Guitar className="size-3.5" /> Afinador
             </button>
             <button type="button" onClick={() => setCalibrationOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-violet-200 transition hover:border-violet-300/30 hover:text-white">
@@ -180,7 +216,7 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
         <Journey progress={exerciseProgress} onStart={(exerciseId) => {
-          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes' || exerciseId === 'essential-rhythm') setActiveExercise(exerciseId)
+          if (exerciseId === 'first-chords' || exerciseId === 'clean-changes' || exerciseId === 'essential-rhythm') startExercise(exerciseId)
         }} />
         {error && <p role="alert" className="mt-4 text-xs text-rose-300">{error}</p>}
       </div>
@@ -195,8 +231,9 @@ export function Dashboard({ user }: { user: User }) {
       {activeExercise && <ChordExercise userId={user.id} exerciseId={activeExercise} onClose={() => setActiveExercise(null)} onComplete={(stars) => handleExerciseComplete(activeExercise, stars)} />}
       {tunerOpen && (
         <GuitarTuner
-          onClose={() => setTunerOpen(false)}
-          onContinue={() => setTunerOpen(false)}
+          onClose={closeTuner}
+          onContinue={closeTuner}
+          continueLabel={pendingExercise ? 'Continuar para o exercício' : undefined}
         />
       )}
       {calibrationOpen && (

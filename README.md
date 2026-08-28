@@ -39,7 +39,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 
 ### Prática guiada
 
-- Afinador cromático de seis cordas exibido ao entrar no aplicativo.
+- O aplicativo abre diretamente no painel, sem interromper a entrada com o afinador.
+- O afinador é apresentado uma única vez antes da primeira lição selecionada em cada aparelho.
 - Acesso permanente ao afinador pelo painel, sem interromper cada lição.
 - Indicação visual de corda baixa, afinada ou alta, processada no navegador.
 - Acompanhamento automático da próxima ação, sem trocar de corda sem confirmação.

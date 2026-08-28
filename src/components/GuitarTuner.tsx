@@ -68,7 +68,7 @@ const detectPitch = (buffer: Float32Array, sampleRate: number, targetFrequency: 
   return { frequency, clarity: bestCorrelation }
 }
 
-export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
+export function GuitarTuner({ onClose, onContinue, continueLabel }: { onClose: () => void; onContinue: () => void; continueLabel?: string }) {
   const [selectedString, setSelectedString] = useState<StringId>(6)
   const [micStatus, setMicStatus] = useState<MicStatus>('idle')
   const [frequency, setFrequency] = useState<number | null>(null)
@@ -249,7 +249,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
           {micStatus === 'unsupported' && <p role="alert" className="mt-3 text-xs text-amber-300">Este navegador não disponibilizou o microfone.</p>}
 
           <button ref={continueRef} type="button" onClick={onContinue} className="mt-4 w-full scroll-mb-4 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5">
-            {tunedStrings.size === 6 ? 'Violão afinado · ir para o painel' : 'Continuar para o painel'}
+            {continueLabel ?? (tunedStrings.size === 6 ? 'Violão afinado · ir para o painel' : 'Continuar para o painel')}
           </button>
         </div>
       </section>
