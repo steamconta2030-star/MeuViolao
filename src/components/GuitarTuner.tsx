@@ -57,22 +57,41 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
   const frameRef = useRef<number | null>(null)
   const stableFramesRef = useRef(0)
   const selectedStringRef = useRef<StringId>(6)
+  const tunedStringsRef = useRef<Set<StringId>>(new Set())
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const meterRef = useRef<HTMLDivElement | null>(null)
+  const activateRef = useRef<HTMLButtonElement | null>(null)
+  const continueRef = useRef<HTMLButtonElement | null>(null)
 
   const target = strings.find((item) => item.id === selectedString) ?? strings[0]
   const inTune = cents !== null && Math.abs(cents) <= 7
 
   useEffect(() => () => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
     streamRef.current?.getTracks().forEach((track) => track.stop())
     void audioContextRef.current?.close()
   }, [])
 
-  const selectString = (stringId: StringId) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      activateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      activateRef.current?.focus({ preventScroll: true })
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const focusElement = (element: HTMLElement | null) => {
+    requestAnimationFrame(() => element?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  }
+
+  const selectString = (stringId: StringId, follow = true) => {
     selectedStringRef.current = stringId
     setSelectedString(stringId)
     stableFramesRef.current = 0
     setFrequency(null)
     setCents(null)
+    if (follow) focusElement(meterRef.current)
   }
 
   const enableMicrophone = async () => {
@@ -96,6 +115,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
       streamRef.current = stream
       audioContextRef.current = context
       setMicStatus('active')
+      focusElement(meterRef.current)
       const samples = new Float32Array(analyser.fftSize)
 
       const analyze = () => {
@@ -112,8 +132,20 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
           setCents(offset)
           if (Math.abs(offset) <= 7) {
             stableFramesRef.current += 1
-            if (stableFramesRef.current >= 12) {
-              setTunedStrings((current) => new Set(current).add(activeTarget.id))
+            if (stableFramesRef.current === 12) {
+              const updated = new Set(tunedStringsRef.current).add(activeTarget.id)
+              tunedStringsRef.current = updated
+              setTunedStrings(updated)
+
+              if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
+              advanceTimerRef.current = setTimeout(() => {
+                const currentIndex = strings.findIndex((item) => item.id === activeTarget.id)
+                const nextString = strings.slice(currentIndex + 1).find((item) => !updated.has(item.id))
+                  ?? strings.find((item) => !updated.has(item.id))
+                if (nextString) selectString(nextString.id)
+                else focusElement(continueRef.current)
+                advanceTimerRef.current = null
+              }, 900)
             }
           } else {
             stableFramesRef.current = 0
@@ -162,7 +194,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
             })}
           </div>
 
-          <div className="game-card mt-5 rounded-2xl border-cyan-300/20 p-5 text-center">
+          <div ref={meterRef} className="game-card mt-5 scroll-mt-4 rounded-2xl border-cyan-300/20 p-5 text-center">
             <p className="text-xs text-slate-400">{target.id}ª corda · {target.label} · {target.frequency.toFixed(2)} Hz</p>
             <p className="mt-2 font-display text-6xl font-bold text-white">{target.note}</p>
             <div className="relative mt-6 h-3 rounded-full bg-gradient-to-r from-cyan-400 via-emerald-300 to-amber-300">
@@ -174,7 +206,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
           </div>
 
           {micStatus !== 'active' && (
-            <button type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">
+            <button ref={activateRef} type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full scroll-mb-4 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">
               {micStatus === 'requesting' ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}
               {micStatus === 'requesting' ? 'Abrindo microfone…' : 'Ativar afinador'}
             </button>
@@ -183,7 +215,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
           {micStatus === 'denied' && <p role="alert" className="mt-3 flex items-center gap-2 text-xs text-rose-300"><MicOff className="size-4" /> Libere o microfone nas configurações do navegador.</p>}
           {micStatus === 'unsupported' && <p role="alert" className="mt-3 text-xs text-amber-300">Este navegador não disponibilizou o microfone.</p>}
 
-          <button type="button" onClick={onContinue} className="mt-4 w-full rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5">
+          <button ref={continueRef} type="button" onClick={onContinue} className="mt-4 w-full scroll-mb-4 rounded-xl border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5">
             {tunedStrings.size === 6 ? 'Violão afinado · iniciar exercício' : 'Continuar para o exercício'}
           </button>
         </div>

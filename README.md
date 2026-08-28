@@ -34,6 +34,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 
 - Afinador cromático de seis cordas antes dos exercícios.
 - Indicação visual de corda baixa, afinada ou alta, processada no navegador.
+- Acompanhamento automático da tela e avanço para a próxima corda afinada.
 - Metrônomo em 40, 60 e 80 BPM.
 - Contagem regressiva 3–2–1.
 - Uma batida para baixo em cada tempo para iniciantes.
