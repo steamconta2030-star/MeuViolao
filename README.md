@@ -32,6 +32,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 
 ### Prática guiada
 
+- Afinador cromático de seis cordas antes dos exercícios.
+- Indicação visual de corda baixa, afinada ou alta, processada no navegador.
 - Metrônomo em 40, 60 e 80 BPM.
 - Contagem regressiva 3–2–1.
 - Uma batida para baixo em cada tempo para iniciantes.
@@ -123,6 +125,7 @@ A branch `main` está conectada à Vercel. Atualizações funcionais são agrupa
 
 ## Próximas ondas
 
+- Validar e calibrar o afinador em diferentes celulares e ambientes.
 - Calibrar o reconhecimento de Em, G, C e D em diferentes aparelhos.
 - Transformar o reconhecimento em feedback de ritmo e acorde.
 - Adicionar novos padrões de batida de forma progressiva.
