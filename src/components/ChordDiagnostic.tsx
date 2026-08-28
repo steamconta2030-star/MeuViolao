@@ -16,12 +16,16 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
   const [results, setResults] = useState<DiagnosticResult[]>([])
   const [micStatus, setMicStatus] = useState<'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'>('idle')
   const [captureStatus, setCaptureStatus] = useState<'idle' | 'armed' | 'analyzing'>('idle')
+  const [countdown, setCountdown] = useState<number | null>(null)
   const [message, setMessage] = useState('Ative o microfone para iniciar o diagnóstico.')
   const frameRef = useRef<number | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const contextRef = useRef<AudioContext | null>(null)
   const armedRef = useRef(false)
   const captureDueRef = useRef(0)
+  const listenAfterRef = useRef(0)
+  const analysisSamplesRef = useRef<ReturnType<typeof compareWithCalibration>[]>([])
+  const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noiseFloorRef = useRef(2)
   const previousEnergyRef = useRef(0)
   const requestedChordRef = useRef<CalibrationChord>('Em')
@@ -38,6 +42,7 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
 
   useEffect(() => () => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
     streamRef.current?.getTracks().forEach((track) => track.stop())
     void contextRef.current?.close()
   }, [])
@@ -77,22 +82,43 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
 
         if (!armedRef.current) {
           noiseFloorRef.current = noiseFloorRef.current * 0.96 + energy * 0.04
+        } else if (timestamp < listenAfterRef.current) {
+          previousEnergyRef.current = energy
         } else if (captureDueRef.current === 0) {
           const onset = energy - previousEnergyRef.current
-          if (energy >= Math.max(4, noiseFloorRef.current + 3) && onset >= 1.3) captureDueRef.current = timestamp + 150
+          if (energy >= Math.max(6, noiseFloorRef.current + 5) && onset >= 2.2) {
+            captureDueRef.current = timestamp + 150
+            analysisSamplesRef.current = []
+            setCaptureStatus('analyzing')
+            setMessage('Ataque detectado. Verificando o som sustentado…')
+          }
         } else if (timestamp >= captureDueRef.current) {
           const requested = requestedChordRef.current
           const comparison = compareWithCalibration(spectrum, context.sampleRate, analyser.fftSize, profile)
-          armedRef.current = false
-          captureDueRef.current = 0
-          setCaptureStatus('idle')
-          if (!comparison) {
-            setMessage('O som não ficou claro. Prepare outra batida.')
+          if (comparison) analysisSamplesRef.current.push(comparison)
+          if (analysisSamplesRef.current.length < 4 && energy >= noiseFloorRef.current + 1.5) {
+            captureDueRef.current = timestamp + 75
           } else {
-            const scores = Object.fromEntries(comparison.scores.map((item) => [item.chord, item.confidence])) as Record<CalibrationChord, number>
-            setResults((current) => [...current, { requested, identified: comparison.identified, confidence: comparison.confidence, scores }])
-            setMessage(comparison.identified === requested ? `${requested} reconhecido corretamente.` : `O sistema identificou ${comparison.identified} em vez de ${requested}.`)
-            setTimeout(followAction, 100)
+            const captured = analysisSamplesRef.current
+            armedRef.current = false
+            captureDueRef.current = 0
+            setCaptureStatus('idle')
+            const votes = calibrationChords.map((chord) => ({ chord, count: captured.filter((item) => item?.identified === chord).length }))
+            let winner = votes[0]
+            for (let index = 1; index < votes.length; index += 1) if (votes[index].count > winner.count) winner = votes[index]
+            const winnerSamples = captured.filter((item) => item?.identified === winner.chord)
+            const averageConfidence = winnerSamples.length ? Math.round(winnerSamples.reduce((sum, item) => sum + (item?.confidence ?? 0), 0) / winnerSamples.length) : 0
+            const averageScores = Object.fromEntries(calibrationChords.map((chord) => [chord, Math.round(captured.reduce((sum, item) => sum + (item?.scores.find((score) => score.chord === chord)?.confidence ?? 0), 0) / Math.max(1, captured.length))])) as Record<CalibrationChord, number>
+            const orderedScores = Object.values(averageScores).toSorted((left, right) => right - left)
+            const stable = captured.length >= 3 && winner.count >= 3 && averageConfidence >= 75 && orderedScores[0] - orderedScores[1] >= 3
+
+            if (!stable) {
+              setMessage('Som rejeitado: houve ruído ou o acorde não ficou estável. Tente novamente; esta tentativa não foi contada.')
+            } else {
+              setResults((current) => [...current, { requested, identified: winner.chord, confidence: averageConfidence, scores: averageScores }])
+              setMessage(winner.chord === requested ? `${requested} reconhecido corretamente.` : `O sistema identificou ${winner.chord} em vez de ${requested}.`)
+            }
+            requestAnimationFrame(followAction)
           }
         }
         previousEnergyRef.current = energy
@@ -107,15 +133,33 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
   }
 
   const armCapture = () => {
-    armedRef.current = true
+    armedRef.current = false
     captureDueRef.current = 0
+    analysisSamplesRef.current = []
     setCaptureStatus('armed')
-    setMessage(`Faça uma batida única para baixo em ${requestedChord} e deixe soar.`)
+    setCountdown(3)
+    setMessage(`Prepare o acorde ${requestedChord}. Toque somente depois da contagem.`)
+
+    const tick = (value: number) => {
+      if (value > 0) {
+        setCountdown(value)
+        countdownTimerRef.current = setTimeout(() => tick(value - 1), 700)
+        return
+      }
+      setCountdown(null)
+      armedRef.current = true
+      listenAfterRef.current = performance.now() + 250
+      previousEnergyRef.current = noiseFloorRef.current
+      setMessage(`Toque agora: uma batida única para baixo em ${requestedChord}.`)
+    }
+    tick(3)
   }
 
   const restart = () => {
     armedRef.current = false
     captureDueRef.current = 0
+    if (countdownTimerRef.current) clearTimeout(countdownTimerRef.current)
+    setCountdown(null)
     setResults([])
     setCaptureStatus('idle')
     setMessage('Diagnóstico reiniciado. Prepare o acorde Em.')
@@ -142,14 +186,14 @@ export function ChordDiagnostic({ userId, onClose, onRecalibrate }: { userId: st
 
           {!completed ? (
             <div className="game-card mt-5 rounded-2xl p-5 text-center">
-              <p className="text-xs text-slate-400">Acorde pedido · tentativa {chordAttempt} de {attemptsPerChord}</p><p className="mt-2 font-display text-6xl font-bold">{requestedChord}</p><p aria-live="polite" className="mt-4 text-xs leading-5 text-slate-300">{message}</p>
+              <p className="text-xs text-slate-400">Acorde pedido · tentativa {chordAttempt} de {attemptsPerChord}</p><p className="mt-2 font-display text-6xl font-bold">{requestedChord}</p>{countdown !== null && <div aria-live="assertive" className="mx-auto mt-4 grid size-16 place-items-center rounded-full border-2 border-amber-200/60 bg-amber-300/15 font-display text-4xl font-bold text-amber-200">{countdown}</div>}<p aria-live="polite" className="mt-4 text-xs leading-5 text-slate-300">{message}</p>
               <div className="mt-5 grid grid-cols-4 gap-2">{calibrationChords.map((chord) => <div key={chord} className="rounded-xl border border-white/10 bg-white/[0.025] p-2"><strong className="text-xs">{chord}</strong><span className="mt-1 block text-[9px] text-slate-500">{results.filter((result) => result.requested === chord).length}/{attemptsPerChord}</span></div>)}</div>
             </div>
           ) : (
             <div className="game-card mt-5 rounded-2xl p-5"><div className="text-center"><Check className="mx-auto size-8 text-emerald-300" /><h3 className="mt-3 font-display text-3xl font-bold">Diagnóstico concluído</h3><p className="mt-2 text-sm text-slate-400">{correctResults} de {results.length} identificações corretas · {Math.round((correctResults / results.length) * 100)}% de acerto</p></div><div className="mt-5 grid gap-2 sm:grid-cols-2">{calibrationChords.map((chord) => { const chordResults = results.filter((result) => result.requested === chord); const correct = chordResults.filter((result) => result.identified === chord).length; return <article key={chord} className={`rounded-xl border p-3 ${correct === attemptsPerChord ? 'border-emerald-300/30 bg-emerald-300/[0.07]' : 'border-amber-300/30 bg-amber-300/[0.07]'}`}><div className="flex items-center justify-between"><strong>{chord}</strong><span className="text-xs">{correct}/{attemptsPerChord} corretos</span></div><p className="mt-2 text-[10px] text-slate-400">{chordResults.map((result) => `${result.identified} ${result.confidence}%`).join(' · ')}</p></article> })}</div></div>
           )}
 
-          {!completed && micStatus !== 'active' ? <button ref={actionRef} type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">{micStatus === 'requesting' ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}{micStatus === 'requesting' ? 'Abrindo microfone…' : 'Ativar microfone'}</button> : !completed ? <button ref={actionRef} type="button" disabled={captureStatus !== 'idle'} onClick={armCapture} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60"><Mic className="size-4" />{captureStatus === 'armed' ? 'Aguardando a batida…' : captureStatus === 'analyzing' ? 'Analisando…' : `Preparar teste de ${requestedChord}`}</button> : null}
+          {!completed && micStatus !== 'active' ? <button ref={actionRef} type="button" disabled={micStatus === 'requesting'} onClick={() => void enableMicrophone()} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60">{micStatus === 'requesting' ? <LoaderCircle className="size-4 animate-spin" /> : <Mic className="size-4" />}{micStatus === 'requesting' ? 'Abrindo microfone…' : 'Ativar microfone'}</button> : !completed ? <button ref={actionRef} type="button" disabled={captureStatus !== 'idle'} onClick={armCapture} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-60"><Mic className="size-4" />{countdown !== null ? `Prepare-se · ${countdown}` : captureStatus === 'armed' ? 'Aguardando sua batida…' : captureStatus === 'analyzing' ? 'Analisando som sustentado…' : `Preparar teste de ${requestedChord}`}</button> : null}
           {(micStatus === 'denied' || micStatus === 'unsupported') && <p role="alert" className="mt-3 flex items-center gap-2 text-xs text-rose-300"><MicOff className="size-4" /> Verifique o acesso ao microfone neste navegador.</p>}
           <div className="mt-4 grid gap-2 sm:grid-cols-2"><button type="button" onClick={restart} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-3 text-xs font-semibold text-slate-300"><RotateCcw className="size-3.5" /> Refazer diagnóstico</button><button type="button" onClick={onRecalibrate} className="rounded-xl border border-violet-300/20 bg-violet-300/[0.06] px-4 py-3 text-xs font-semibold text-violet-200">Refazer calibração pessoal</button></div>
         </div>

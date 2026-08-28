@@ -63,6 +63,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
+- Diagnóstico protegido por contagem regressiva, limiar de ruído e validação do som sustentado em várias leituras.
+- Ruídos e capturas instáveis são rejeitados sem contabilizar uma tentativa.
 
 > O áudio não é gravado nem enviado ao servidor. O reconhecimento ainda é assistivo: resultados incertos não retiram vidas nem impedem a conclusão.
 
