@@ -42,7 +42,9 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Afinador cromático de seis cordas exibido ao entrar no aplicativo.
 - Acesso permanente ao afinador pelo painel, sem interromper cada lição.
 - Indicação visual de corda baixa, afinada ou alta, processada no navegador.
-- Acompanhamento automático da tela e avanço para a próxima corda afinada.
+- Acompanhamento automático da próxima ação, sem trocar de corda sem confirmação.
+- Avanço manual pelo botão de próxima corda após a afinação ser confirmada.
+- Detecção ajustada por faixa de cada corda, clareza do sinal e estabilidade de frequência.
 - Metrônomo em 40, 60 e 80 BPM.
 - Contagem regressiva 3–2–1.
 - Uma batida para baixo em cada tempo para iniciantes.
@@ -58,8 +60,47 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Filtro para reduzir falsos positivos causados pelo metrônomo.
 - Confirmação das batidas percebidas.
 - Reconhecimento experimental do acorde destacado entre Em, G, C e D.
+- Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
+- Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
 
 > O áudio não é gravado nem enviado ao servidor. O reconhecimento ainda é assistivo: resultados incertos não retiram vidas nem impedem a conclusão.
+
+## Calibração pessoal de acordes
+
+A primeira versão da calibração pessoal está implementada para adaptar o reconhecimento ao violão, celular e ambiente de cada usuário.
+
+### Fluxo implementado
+
+1. Abrir a calibração pelo painel.
+2. Afinar o violão antes de começar.
+3. Tocar cinco amostras claras de Em, G, C e D.
+4. Rejeitar automaticamente silêncio, ruído e amostras instáveis.
+5. Criar uma assinatura média das frequências para cada acorde.
+6. Comparar o acorde pedido com os outros três perfis pessoais.
+7. Salvar o perfil localmente e permitir refazer a calibração quando necessário.
+8. Usar automaticamente o perfil nos exercícios seguintes.
+
+### Dados e privacidade
+
+- O áudio bruto não será gravado nem enviado ao servidor.
+- Serão guardadas somente características numéricas das frequências captadas.
+- A primeira versão salvará o perfil localmente no aparelho.
+- Uma futura sincronização entre aparelhos só será adicionada com consentimento claro do usuário.
+
+### Critérios iniciais de qualidade
+
+- Cada acorde precisa ter várias amostras consistentes antes de ser aceito.
+- O sistema deve continuar ignorando silêncio e ruído ambiente.
+- A calibração deve diferenciar Em, G, C e D no aparelho usado no teste.
+- Resultados incertos continuam sem retirar vidas ou bloquear a conclusão do exercício.
+- Batidas para baixo e para cima devem ser testadas separadamente.
+
+### Estado técnico
+
+- Tela de captura guiada concluída.
+- Perfil local com as quatro assinaturas concluído.
+- Comparação pessoal integrada aos exercícios.
+- Próximo passo: testar e ajustar os limites em diferentes celulares, violões e ambientes.
 
 ## Tecnologias
 
@@ -134,8 +175,8 @@ A branch `main` está conectada à Vercel. Atualizações funcionais são agrupa
 
 ## Próximas ondas
 
+- Testar e refinar a calibração pessoal de Em, G, C e D com som real.
 - Validar e calibrar o afinador em diferentes celulares e ambientes.
-- Calibrar o reconhecimento de Em, G, C e D em diferentes aparelhos.
 - Transformar o reconhecimento em feedback de ritmo e acorde.
 - Adicionar novos padrões de batida de forma progressiva.
 - Expandir a jornada com novas etapas e exercícios.

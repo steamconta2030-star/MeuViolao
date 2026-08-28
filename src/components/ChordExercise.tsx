@@ -1,6 +1,7 @@
 import { Check, Clock3, Heart, Mic, MicOff, Play, RotateCcw, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ChordDiagram } from './ChordDiagram'
+import { analyzeWithCalibration, loadChordCalibration } from '../lib/chord-calibration'
 
 const exercises = {
   'first-chords': {
@@ -85,8 +86,9 @@ const analyzeChord = (spectrum: Uint8Array, sampleRate: number, fftSize: number,
   return { matched: targetShare >= 0.29 && presentNotes >= 2 && targetShare >= bestOtherShare, confidence }
 }
 
-export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
+export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { userId: string; exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
   const { title, questions, rounds: practiceRounds } = exercises[exerciseId]
+  const [calibrationProfile] = useState(() => loadChordCalibration(userId))
   const [question, setQuestion] = useState(0)
   const [lives, setLives] = useState(3)
   const [wrongAnswer, setWrongAnswer] = useState<string | null>(null)
@@ -292,7 +294,9 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
 
         if (chordAnalysisDueRef.current > 0 && now >= chordAnalysisDueRef.current) {
           chordAnalysisDueRef.current = 0
-          const result = analyzeChord(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current)
+          const result = calibrationProfile
+            ? analyzeWithCalibration(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current, calibrationProfile)
+            : analyzeChord(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current)
           setEmConfidence(result.confidence)
           setEmStatus(result.matched ? 'matched' : 'uncertain')
           if (result.matched) {
@@ -516,6 +520,7 @@ export function ChordExercise({ exerciseId, onClose, onComplete }: { exerciseId:
                 <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>
                   {emStatus === 'matched' ? `✓ ${analyzedChord} reconhecido · compatibilidade ${emConfidence}%` : emStatus === 'uncertain' ? `Som captado, mas o ${analyzedChord} ainda está incerto · ${emConfidence}%` : emStatus === 'analyzing' ? `Analisando as notas do ${analyzedChord}…` : `Toque o acorde destacado: ${practiceRounds[round].chords[activeChord]}`}
                   {detectedBeats > 0 && <small className="mt-1 block opacity-75">{emMatches} de {detectedBeats} batidas combinaram com o acorde pedido</small>}
+                  {calibrationProfile && <small className="mt-1 block text-violet-200/75">Perfil pessoal de acordes ativo</small>}
                 </div>
               )}
               <h3 className="mt-4 text-lg font-semibold">{practiceRounds[round].title}</h3>

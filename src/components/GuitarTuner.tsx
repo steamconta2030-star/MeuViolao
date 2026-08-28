@@ -13,14 +13,24 @@ const strings = [
 type StringId = (typeof strings)[number]['id']
 type MicStatus = 'idle' | 'requesting' | 'active' | 'denied' | 'unsupported'
 
-const detectPitch = (buffer: Float32Array, sampleRate: number) => {
-  let rms = 0
-  for (const sample of buffer) rms += sample * sample
-  rms = Math.sqrt(rms / buffer.length)
-  if (rms < 0.012) return null
+const detectPitch = (buffer: Float32Array, sampleRate: number, targetFrequency: number) => {
+  let mean = 0
+  for (const sample of buffer) mean += sample
+  mean /= buffer.length
 
-  const minLag = Math.floor(sampleRate / 360)
-  const maxLag = Math.min(Math.floor(sampleRate / 70), buffer.length - 1)
+  let rms = 0
+  for (const sample of buffer) {
+    const centered = sample - mean
+    rms += centered * centered
+  }
+  rms = Math.sqrt(rms / buffer.length)
+  if (rms < 0.007) return null
+
+  const minFrequency = targetFrequency * 0.72
+  const maxFrequency = targetFrequency * 1.35
+  const minLag = Math.max(2, Math.floor(sampleRate / maxFrequency))
+  const maxLag = Math.min(Math.ceil(sampleRate / minFrequency), buffer.length - 2)
+  const correlations = new Float32Array(maxLag + 1)
   let bestLag = -1
   let bestCorrelation = 0
 
@@ -28,22 +38,34 @@ const detectPitch = (buffer: Float32Array, sampleRate: number) => {
     let correlation = 0
     let energyA = 0
     let energyB = 0
-    for (let index = 0; index < buffer.length - lag; index += 1) {
-      const a = buffer[index]
-      const b = buffer[index + lag]
+    const sampleCount = Math.min(2048, buffer.length - lag)
+    for (let index = 0; index < sampleCount; index += 1) {
+      const a = buffer[index] - mean
+      const b = buffer[index + lag] - mean
       correlation += a * b
       energyA += a * a
       energyB += b * b
     }
     const normalized = correlation / Math.sqrt(energyA * energyB)
+    correlations[lag] = normalized
     if (normalized > bestCorrelation) {
       bestCorrelation = normalized
       bestLag = lag
     }
   }
 
-  if (bestLag < 0 || bestCorrelation < 0.72) return null
-  return sampleRate / bestLag
+  if (bestLag < 0 || bestCorrelation < 0.78) return null
+
+  const previous = correlations[bestLag - 1]
+  const current = correlations[bestLag]
+  const next = correlations[bestLag + 1]
+  const denominator = previous - (2 * current) + next
+  const adjustment = denominator === 0 ? 0 : 0.5 * (previous - next) / denominator
+  const refinedLag = bestLag + Math.max(-0.5, Math.min(0.5, adjustment))
+  const frequency = sampleRate / refinedLag
+
+  if (frequency < minFrequency || frequency > maxFrequency) return null
+  return { frequency, clarity: bestCorrelation }
 }
 
 export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onContinue: () => void }) {
@@ -58,9 +80,11 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
   const stableFramesRef = useRef(0)
   const selectedStringRef = useRef<StringId>(6)
   const tunedStringsRef = useRef<Set<StringId>>(new Set())
-  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pitchHistoryRef = useRef<number[]>([])
+  const lastAnalysisRef = useRef(0)
   const meterRef = useRef<HTMLDivElement | null>(null)
   const activateRef = useRef<HTMLButtonElement | null>(null)
+  const nextStringRef = useRef<HTMLButtonElement | null>(null)
   const continueRef = useRef<HTMLButtonElement | null>(null)
 
   const target = strings.find((item) => item.id === selectedString) ?? strings[0]
@@ -68,7 +92,6 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
 
   useEffect(() => () => {
     if (frameRef.current) cancelAnimationFrame(frameRef.current)
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
     streamRef.current?.getTracks().forEach((track) => track.stop())
     void audioContextRef.current?.close()
   }, [])
@@ -89,6 +112,7 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
     selectedStringRef.current = stringId
     setSelectedString(stringId)
     stableFramesRef.current = 0
+    pitchHistoryRef.current = []
     setFrequency(null)
     setCents(null)
     if (follow) focusElement(meterRef.current)
@@ -118,42 +142,42 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
       focusElement(meterRef.current)
       const samples = new Float32Array(analyser.fftSize)
 
-      const analyze = () => {
+      const analyze = (timestamp: number) => {
+        if (timestamp - lastAnalysisRef.current < 70) {
+          frameRef.current = requestAnimationFrame(analyze)
+          return
+        }
+        lastAnalysisRef.current = timestamp
         analyser.getFloatTimeDomainData(samples)
-        const detected = detectPitch(samples, context.sampleRate)
+        const activeTarget = strings.find((item) => item.id === selectedStringRef.current) ?? strings[0]
+        const detected = detectPitch(samples, context.sampleRate, activeTarget.frequency)
         if (!detected) {
           setFrequency(null)
           setCents(null)
           stableFramesRef.current = 0
+          pitchHistoryRef.current = []
         } else {
-          const activeTarget = strings.find((item) => item.id === selectedStringRef.current) ?? strings[0]
-          const offset = Math.round(1200 * Math.log2(detected / activeTarget.frequency))
-          setFrequency(detected)
+          pitchHistoryRef.current = [...pitchHistoryRef.current.slice(-4), detected.frequency]
+          const ordered = [...pitchHistoryRef.current].sort((a, b) => a - b)
+          const smoothedFrequency = ordered[Math.floor(ordered.length / 2)]
+          const offset = Math.round(1200 * Math.log2(smoothedFrequency / activeTarget.frequency))
+          setFrequency(smoothedFrequency)
           setCents(offset)
-          if (Math.abs(offset) <= 7) {
+          if (Math.abs(offset) <= 6 && detected.clarity >= 0.82) {
             stableFramesRef.current += 1
-            if (stableFramesRef.current === 12) {
+            if (stableFramesRef.current === 8) {
               const updated = new Set(tunedStringsRef.current).add(activeTarget.id)
               tunedStringsRef.current = updated
               setTunedStrings(updated)
-
-              if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
-              advanceTimerRef.current = setTimeout(() => {
-                const currentIndex = strings.findIndex((item) => item.id === activeTarget.id)
-                const nextString = strings.slice(currentIndex + 1).find((item) => !updated.has(item.id))
-                  ?? strings.find((item) => !updated.has(item.id))
-                if (nextString) selectString(nextString.id)
-                else focusElement(continueRef.current)
-                advanceTimerRef.current = null
-              }, 900)
+              setTimeout(() => focusElement(updated.size === strings.length ? continueRef.current : nextStringRef.current), 120)
             }
-          } else {
+          } else if (Math.abs(offset) > 10) {
             stableFramesRef.current = 0
           }
         }
         frameRef.current = requestAnimationFrame(analyze)
       }
-      analyze()
+      frameRef.current = requestAnimationFrame(analyze)
     } catch {
       setMicStatus('denied')
     }
@@ -166,6 +190,10 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
       : cents < 0
         ? { text: 'Está baixa · aperte a corda', color: 'text-cyan-200', icon: <ArrowUp className="size-5" /> }
         : { text: 'Está alta · afrouxe a corda', color: 'text-amber-300', icon: <ArrowDown className="size-5" /> }
+
+  const currentIndex = strings.findIndex((item) => item.id === selectedString)
+  const nextUntunedString = strings.slice(currentIndex + 1).find((item) => !tunedStrings.has(item.id))
+    ?? strings.find((item) => !tunedStrings.has(item.id))
 
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-[#020817]/95 px-3 py-4 backdrop-blur-sm sm:grid sm:place-items-center">
@@ -203,6 +231,11 @@ export function GuitarTuner({ onClose, onContinue }: { onClose: () => void; onCo
             </div>
             <div className={`mt-6 flex items-center justify-center gap-2 font-semibold ${status.color}`}>{status.icon}<span>{status.text}</span></div>
             <p className="mt-2 text-xs text-slate-500">{frequency ? `${frequency.toFixed(1)} Hz · ${cents && cents > 0 ? '+' : ''}${cents ?? 0} cents` : 'Aguardando o som da corda'}</p>
+            {tunedStrings.has(selectedString) && nextUntunedString && (
+              <button ref={nextStringRef} type="button" onClick={() => selectString(nextUntunedString.id)} className="game-button mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold">
+                Próxima corda · {nextUntunedString.note} ({nextUntunedString.id}ª)
+              </button>
+            )}
           </div>
 
           {micStatus !== 'active' && (

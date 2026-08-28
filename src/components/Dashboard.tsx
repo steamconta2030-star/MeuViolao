@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { Check, CheckCircle2, Clock3, Flame, Guitar, ListChecks, LoaderCircle, Plus, Sparkles, Target, Trophy } from 'lucide-react'
+import { Check, CheckCircle2, Clock3, Flame, Guitar, ListChecks, LoaderCircle, Plus, SlidersHorizontal, Sparkles, Target, Trophy } from 'lucide-react'
 import { usePracticeData } from '../hooks/use-practice-data'
 import { Journey } from './Journey'
 import { ChordExercise } from './ChordExercise'
 import { GuitarTuner } from './GuitarTuner'
+import { ChordCalibration } from './ChordCalibration'
+import { loadChordCalibration } from '../lib/chord-calibration'
 
 export function Dashboard({ user }: { user: User }) {
   const { profile, summary, exerciseProgress, loading, saving, error, addPractice, saveExerciseProgress } = usePracticeData(user)
   const [feedback, setFeedback] = useState<{ title: string; detail: string } | null>(null)
   const [activeExercise, setActiveExercise] = useState<'first-chords' | 'clean-changes' | 'essential-rhythm' | null>(null)
   const [tunerOpen, setTunerOpen] = useState(true)
+  const [calibrationOpen, setCalibrationOpen] = useState(false)
+  const [calibrationReady, setCalibrationReady] = useState(() => Boolean(loadChordCalibration(user.id)))
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -68,9 +72,14 @@ export function Dashboard({ user }: { user: User }) {
         <h2 className="mt-3 font-display text-3xl font-bold tracking-tight">Prática de hoje</h2>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-400">{user.email}</p>
-          <button type="button" onClick={() => setTunerOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-300/30 hover:text-white">
-            <Guitar className="size-3.5" /> Afinador
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setTunerOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-300/30 hover:text-white">
+              <Guitar className="size-3.5" /> Afinador
+            </button>
+            <button type="button" onClick={() => setCalibrationOpen(true)} className="game-pill inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-violet-200 transition hover:border-violet-300/30 hover:text-white">
+              {calibrationReady ? <Check className="size-3.5 text-emerald-300" /> : <SlidersHorizontal className="size-3.5" />} {calibrationReady ? 'Acordes calibrados' : 'Calibrar acordes'}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -171,11 +180,22 @@ export function Dashboard({ user }: { user: User }) {
           </div>
         </div>
       )}
-      {activeExercise && <ChordExercise exerciseId={activeExercise} onClose={() => setActiveExercise(null)} onComplete={(stars) => handleExerciseComplete(activeExercise, stars)} />}
+      {activeExercise && <ChordExercise userId={user.id} exerciseId={activeExercise} onClose={() => setActiveExercise(null)} onComplete={(stars) => handleExerciseComplete(activeExercise, stars)} />}
       {tunerOpen && (
         <GuitarTuner
           onClose={() => setTunerOpen(false)}
           onContinue={() => setTunerOpen(false)}
+        />
+      )}
+      {calibrationOpen && (
+        <ChordCalibration
+          userId={user.id}
+          onClose={() => setCalibrationOpen(false)}
+          onSaved={() => {
+            setCalibrationReady(true)
+            setCalibrationOpen(false)
+            setFeedback({ title: 'Calibração concluída!', detail: 'Seu perfil pessoal já será usado nos exercícios.' })
+          }}
         />
       )}
     </div>
