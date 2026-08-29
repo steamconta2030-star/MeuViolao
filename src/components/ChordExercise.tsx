@@ -1,7 +1,7 @@
 import { Check, Clock3, Heart, Mic, MicOff, Play, RotateCcw, Star, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ChordDiagram } from './ChordDiagram'
-import { analyzeWithCalibration, loadChordCalibration } from '../lib/chord-calibration'
+import { calibrationChords, compareWithCalibration, loadChordCalibration } from '../lib/chord-calibration'
 
 const exercises = {
   'first-chords': {
@@ -47,6 +47,11 @@ const exercises = {
 
 type ExerciseId = keyof typeof exercises
 type PracticeChord = 'Em' | 'G' | 'C' | 'D'
+type ChordFrameComparison = NonNullable<ReturnType<typeof compareWithCalibration>>
+
+const chordAnalysisFrames = 5
+const chordAnalysisStartDelay = 150
+const chordAnalysisFrameInterval = 75
 
 const audioTimestamp = () => performance.now()
 
@@ -86,6 +91,16 @@ const analyzeChord = (spectrum: Uint8Array, sampleRate: number, fftSize: number,
   return { matched: targetShare >= 0.29 && presentNotes >= 2 && targetShare >= bestOtherShare, confidence }
 }
 
+const compareRequestedChordWithoutCalibration = (spectrum: Uint8Array, sampleRate: number, fftSize: number, requestedChord: PracticeChord): ChordFrameComparison | null => {
+  const result = analyzeChord(spectrum, sampleRate, fftSize, requestedChord)
+  if (!result.matched) return null
+  return {
+    identified: requestedChord,
+    confidence: result.confidence,
+    scores: calibrationChords.map((chord) => ({ chord, confidence: chord === requestedChord ? result.confidence : 0, score: chord === requestedChord ? result.confidence / 100 : 0 })),
+  }
+}
+
 export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { userId: string; exerciseId: ExerciseId; onClose: () => void; onComplete: (stars: number) => Promise<boolean> }) {
   const { title, questions, rounds: practiceRounds } = exercises[exerciseId]
   const [calibrationProfile] = useState(() => loadChordCalibration(userId))
@@ -108,10 +123,11 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
   const [detectedBeats, setDetectedBeats] = useState(0)
   const [expectedBeats, setExpectedBeats] = useState(0)
   const [beatHit, setBeatHit] = useState(false)
-  const [emStatus, setEmStatus] = useState<'idle' | 'analyzing' | 'matched' | 'uncertain'>('idle')
+  const [emStatus, setEmStatus] = useState<'idle' | 'analyzing' | 'matched' | 'different' | 'uncertain'>('idle')
   const [emConfidence, setEmConfidence] = useState(0)
   const [emMatches, setEmMatches] = useState(0)
   const [analyzedChord, setAnalyzedChord] = useState<PracticeChord>('Em')
+  const [identifiedChord, setIdentifiedChord] = useState<PracticeChord | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const metronomeRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const countdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -132,6 +148,8 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
   const roundRef = useRef(0)
   const emMatchesRef = useRef(0)
   const chordAnalysisDueRef = useRef(0)
+  const chordAnalysisFramesRef = useRef(0)
+  const chordAnalysisSamplesRef = useRef<ChordFrameComparison[]>([])
   const chordAnalysisTargetRef = useRef<PracticeChord>('Em')
   const chordCardRefs = useRef<Array<HTMLDivElement | null>>([])
   const exerciseScrollRef = useRef<HTMLDivElement | null>(null)
@@ -200,7 +218,7 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
       setExpectedBeats(expectedBeatsRef.current)
     }
     setBeatHit(false)
-    setEmStatus('idle')
+    if (chordAnalysisDueRef.current === 0) setEmStatus('idle')
     setBeat(nextBeat)
     playClick(nextBeat === 1)
   }
@@ -241,9 +259,12 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
     setBeatHit(false)
     setEmStatus('idle')
     setEmConfidence(0)
+    setIdentifiedChord(null)
     setEmMatches(0)
     emMatchesRef.current = 0
     chordAnalysisDueRef.current = 0
+    chordAnalysisFramesRef.current = 0
+    chordAnalysisSamplesRef.current = []
     setRunning(false)
     runCountdown(3)
     focusPractice()
@@ -293,15 +314,52 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
         const now = audioTimestamp()
 
         if (chordAnalysisDueRef.current > 0 && now >= chordAnalysisDueRef.current) {
-          chordAnalysisDueRef.current = 0
-          const result = calibrationProfile
-            ? analyzeWithCalibration(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current, calibrationProfile)
-            : analyzeChord(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current)
-          setEmConfidence(result.confidence)
-          setEmStatus(result.matched ? 'matched' : 'uncertain')
-          if (result.matched) {
-            emMatchesRef.current += 1
-            setEmMatches(emMatchesRef.current)
+          const comparison = calibrationProfile
+            ? compareWithCalibration(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, calibrationProfile)
+            : compareRequestedChordWithoutCalibration(spectrum, audioContextRef.current!.sampleRate, analyser.fftSize, chordAnalysisTargetRef.current)
+          chordAnalysisFramesRef.current += 1
+          if (comparison) chordAnalysisSamplesRef.current.push(comparison)
+
+          if (chordAnalysisFramesRef.current < chordAnalysisFrames) {
+            chordAnalysisDueRef.current = now + chordAnalysisFrameInterval
+          } else {
+            const captured = chordAnalysisSamplesRef.current
+            const votes = calibrationChords.map((chord) => ({ chord, count: captured.filter((item) => item.identified === chord).length }))
+            let winner = votes[0]
+            for (let index = 1; index < votes.length; index += 1) {
+              if (votes[index].count > winner.count) winner = votes[index]
+            }
+            const winnerSamples = captured.filter((item) => item.identified === winner.chord)
+            const averageConfidence = winnerSamples.length
+              ? Math.round(winnerSamples.reduce((sum, item) => sum + item.confidence, 0) / winnerSamples.length)
+              : 0
+            const averageScores = calibrationChords.map((chord) => ({
+              chord,
+              confidence: Math.round(
+                captured.reduce((sum, item) => sum + (item.scores.find((score) => score.chord === chord)?.confidence ?? 0), 0)
+                / Math.max(1, captured.length),
+              ),
+            })).toSorted((left, right) => right.confidence - left.confidence)
+            const requiredVotes = Math.ceil(chordAnalysisFrames * 0.6)
+            const stable = captured.length >= requiredVotes
+              && winner.count >= requiredVotes
+              && (!calibrationProfile || averageConfidence >= 68)
+              && (!calibrationProfile || (averageScores[0].chord === winner.chord && averageScores[0].confidence - averageScores[1].confidence >= 1))
+
+            chordAnalysisDueRef.current = 0
+            chordAnalysisFramesRef.current = 0
+            chordAnalysisSamplesRef.current = []
+            setEmConfidence(stable ? averageConfidence : 0)
+            setIdentifiedChord(stable ? winner.chord : null)
+            if (!stable) {
+              setEmStatus('uncertain')
+            } else if (winner.chord === chordAnalysisTargetRef.current) {
+              setEmStatus('matched')
+              emMatchesRef.current += 1
+              setEmMatches(emMatchesRef.current)
+            } else {
+              setEmStatus('different')
+            }
           }
         }
 
@@ -318,10 +376,15 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
             setDetectedBeats(detectedBeatsRef.current)
             setBeatHit(true)
             const targetChord = practiceRounds[roundRef.current].chords[activeChordRef.current] as PracticeChord
-            chordAnalysisTargetRef.current = targetChord
-            setAnalyzedChord(targetChord)
-            setEmStatus('analyzing')
-            chordAnalysisDueRef.current = audioTimestamp() + 140
+            if (chordAnalysisDueRef.current === 0) {
+              chordAnalysisTargetRef.current = targetChord
+              chordAnalysisFramesRef.current = 0
+              chordAnalysisSamplesRef.current = []
+              setAnalyzedChord(targetChord)
+              setIdentifiedChord(null)
+              setEmStatus('analyzing')
+              chordAnalysisDueRef.current = audioTimestamp() + chordAnalysisStartDelay
+            }
           }
         }
         previousGuitarEnergyRef.current = guitarEnergy
@@ -395,6 +458,7 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
     setBeatHit(false)
     setEmStatus('idle')
     setEmConfidence(0)
+    setIdentifiedChord(null)
     setEmMatches(0)
     beatRef.current = 0
     activeChordRef.current = 0
@@ -408,6 +472,8 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
     }
     emMatchesRef.current = 0
     chordAnalysisDueRef.current = 0
+    chordAnalysisFramesRef.current = 0
+    chordAnalysisSamplesRef.current = []
   }
 
   const answer = async (option: string) => {
@@ -442,6 +508,7 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
       setBeatHit(false)
       setEmStatus('idle')
       setEmConfidence(0)
+      setIdentifiedChord(null)
       setEmMatches(0)
       beatRef.current = 0
       activeChordRef.current = 0
@@ -450,6 +517,8 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
       expectedBeatsRef.current = 0
       emMatchesRef.current = 0
       chordAnalysisDueRef.current = 0
+      chordAnalysisFramesRef.current = 0
+      chordAnalysisSamplesRef.current = []
       focusPractice()
       return
     }
@@ -530,8 +599,8 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
               <p className={`mt-3 text-xs font-semibold ${activeStrum === 'ghost-up' ? 'text-violet-200' : 'text-cyan-200'}`}>{activeStrum === 'ghost-up' ? '↑ Suba a mão sem tocar nas cordas' : activeStrum === 'up' ? '↑ Agora, toque para cima' : '↓ Agora, toque para baixo'}</p>
               {micStatus === 'active' && expectedBeats > 0 && <p className="mt-2 text-[11px] text-emerald-200">Microfone percebeu {detectedBeats} de {expectedBeats} batidas até agora</p>}
               {micStatus === 'active' && (
-                <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>
-                  {emStatus === 'matched' ? `✓ ${analyzedChord} reconhecido · compatibilidade ${emConfidence}%` : emStatus === 'uncertain' ? `Som captado, mas o ${analyzedChord} ainda está incerto · ${emConfidence}%` : emStatus === 'analyzing' ? `Analisando as notas do ${analyzedChord}…` : `Toque o acorde destacado: ${practiceRounds[round].chords[activeChord]}`}
+                <div className={`mx-auto mt-2 max-w-xs rounded-xl border px-3 py-2 text-xs ${emStatus === 'matched' ? 'border-emerald-300/30 bg-emerald-300/10 text-emerald-200' : emStatus === 'different' ? 'border-rose-300/30 bg-rose-300/10 text-rose-200' : emStatus === 'uncertain' ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-white/10 bg-white/[0.025] text-slate-400'}`}>
+                  {emStatus === 'matched' ? `✓ ${analyzedChord} reconhecido · compatibilidade ${emConfidence}%` : emStatus === 'different' && identifiedChord ? `Acorde identificado: ${identifiedChord} · compatibilidade ${emConfidence}% (pedido: ${analyzedChord})` : emStatus === 'uncertain' ? 'Som incerto — nenhuma identificação confirmada' : emStatus === 'analyzing' ? `Analisando o som sustentado de ${analyzedChord}…` : `Toque o acorde destacado: ${practiceRounds[round].chords[activeChord]}`}
                   {detectedBeats > 0 && <small className="mt-1 block opacity-75">{emMatches} de {detectedBeats} batidas combinaram com o acorde pedido</small>}
                   {calibrationProfile && <small className="mt-1 block text-violet-200/75">Perfil pessoal de acordes ativo</small>}
                 </div>
@@ -558,8 +627,8 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
                   </div>
                   <p className="mt-3 text-xs leading-5 text-slate-300">{roundFeedback}</p>
                   <small className="mt-2 block text-[10px] leading-4 text-slate-500">Este retorno é orientativo e não impede seu avanço.</small>
-                  <button type="button" disabled={saving} onClick={() => void finishRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-lg shadow-emerald-950/30 disabled:opacity-50">
-                    <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
+                  <button type="button" disabled={saving || emStatus === 'analyzing'} onClick={() => void finishRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-lg shadow-emerald-950/30 disabled:opacity-50">
+                    <Check className="size-4" /> {emStatus === 'analyzing' ? 'Finalizando análise…' : round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
                   </button>
                 </div>
               )}

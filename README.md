@@ -63,6 +63,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Reconhecimento experimental do acorde destacado entre Em, G, C e D.
 - Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
+- Durante os exercícios, cada batida usa cinco leituras do som sustentado, exige maioria consistente e informa explicitamente quando outro acorde é identificado.
 - Resumo ao final de cada rodada, separando cobertura das batidas e compatibilidade dos acordes.
 - Orientação curta e adaptada ao resultado, sem reprovar ou bloquear o iniciante.
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
