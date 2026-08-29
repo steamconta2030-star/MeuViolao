@@ -1,4 +1,4 @@
-+create table if not exists public.profiles (
+create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text check (char_length(display_name) between 1 and 80),
   daily_goal_minutes integer not null default 15 check (daily_goal_minutes between 5 and 240),
