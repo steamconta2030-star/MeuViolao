@@ -63,7 +63,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Reconhecimento experimental do acorde destacado entre Em, G, C e D.
 - Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
-- Resumo ao final de cada rodada, separando precisão do ritmo e compatibilidade dos acordes.
+- Resumo ao final de cada rodada, separando cobertura das batidas e compatibilidade dos acordes.
 - Orientação curta e adaptada ao resultado, sem reprovar ou bloquear o iniciante.
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
 - Diagnóstico protegido por contagem regressiva, limiar de ruído e validação do som sustentado em várias leituras.
@@ -204,6 +204,7 @@ A branch `main` está conectada à Vercel. Atualizações funcionais são agrupa
 - Validar e calibrar o afinador em diferentes celulares e ambientes.
 - Refinar os limites de reconhecimento com os resultados do diagnóstico pessoal.
 - Validar o novo resumo de ritmo e acordes em uma sessão real no celular.
+- Adicionar testes automatizados para cálculos, reinício das rodadas e casos-limite da captação.
 - Adicionar novos padrões de batida de forma progressiva.
 - Expandir a jornada com novas etapas e exercícios.
 - Melhorar recompensas, combos, tentativas e desbloqueios.

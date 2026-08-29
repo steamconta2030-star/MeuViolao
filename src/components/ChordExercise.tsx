@@ -542,22 +542,22 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
                 {completedCycles >= practiceRounds[round].targetCycles ? <Check className="size-9" /> : <span><strong className="text-3xl">{completedCycles}</strong><small className="block font-sans text-[10px]">de {practiceRounds[round].targetCycles} voltas</small></span>}
               </div>
               {completedCycles >= practiceRounds[round].targetCycles && (
-                <div className="mt-4 rounded-2xl border border-emerald-300/20 bg-[#071426] p-3 text-left">
+                <div aria-live="polite" className="mt-4 rounded-2xl border border-emerald-300/20 bg-[#071426] p-3 text-left">
                   <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300">Resumo da rodada</p>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
                       <span className="text-[10px] text-slate-500">Ritmo captado</span>
                       <strong className="mt-1 block text-xl text-cyan-200">{micStatus === 'active' ? `${rhythmAccuracy}%` : '—'}</strong>
-                      <small className="text-[9px] text-slate-500">{detectedBeats}/{expectedBeats} batidas</small>
+                      <small className="text-[10px] text-slate-500">{detectedBeats}/{expectedBeats} batidas</small>
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
                       <span className="text-[10px] text-slate-500">Acordes reconhecidos</span>
                       <strong className="mt-1 block text-xl text-violet-200">{micStatus === 'active' && detectedBeats > 0 ? `${chordAccuracy}%` : '—'}</strong>
-                      <small className="text-[9px] text-slate-500">{emMatches}/{detectedBeats} compatíveis</small>
+                      <small className="text-[10px] text-slate-500">{emMatches}/{detectedBeats} compatíveis</small>
                     </div>
                   </div>
                   <p className="mt-3 text-xs leading-5 text-slate-300">{roundFeedback}</p>
-                  <small className="mt-2 block text-[9px] leading-4 text-slate-500">Este retorno é orientativo e não impede seu avanço.</small>
+                  <small className="mt-2 block text-[10px] leading-4 text-slate-500">Este retorno é orientativo e não impede seu avanço.</small>
                   <button type="button" disabled={saving} onClick={() => void finishRound()} className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 px-4 py-3 text-sm font-semibold text-[#07101f] shadow-lg shadow-emerald-950/30 disabled:opacity-50">
                     <Check className="size-4" /> {round === practiceRounds.length - 1 ? 'Concluir exercício' : 'Próxima rodada'}
                   </button>
