@@ -63,6 +63,8 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Reconhecimento experimental do acorde destacado entre Em, G, C e D.
 - Calibração pessoal de Em, G, C e D com cinco amostras por acorde.
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
+- Resumo ao final de cada rodada, separando precisão do ritmo e compatibilidade dos acordes.
+- Orientação curta e adaptada ao resultado, sem reprovar ou bloquear o iniciante.
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
 - Diagnóstico protegido por contagem regressiva, limiar de ruído e validação do som sustentado em várias leituras.
 - Ruídos e capturas instáveis são rejeitados sem contabilizar uma tentativa.
@@ -145,6 +147,8 @@ As tabelas atuais são:
 - `profiles`: meta diária e XP do usuário.
 - `practice_sessions`: sessões e minutos praticados.
 - `exercise_progress`: conclusões e melhor quantidade de estrelas.
+- `chord_calibrations`: perfil acústico pessoal dos acordes, sem armazenar áudio bruto.
+- `chord_diagnostics`: resumos dos testes de reconhecimento realizados pelo usuário.
 
 As tabelas públicas usam Row Level Security (RLS). Cada usuário autenticado pode acessar somente os próprios registros.
 
@@ -180,6 +184,8 @@ npm run build
 
 Todo checkpoint deve passar no lint e no build antes de ser publicado.
 
+As migrações também devem ser aplicadas em um Supabase local vazio antes do próximo checkpoint de banco. Esse teste confirma que toda a estrutura pode ser reconstruída apenas pelos arquivos versionados.
+
 ## Publicação
 
 A branch `main` está conectada à Vercel. Atualizações funcionais são agrupadas em checkpoints pequenos e reversíveis para reduzir deploys e facilitar rollback.
@@ -189,7 +195,7 @@ A branch `main` está conectada à Vercel. Atualizações funcionais são agrupa
 - Testar e refinar a calibração pessoal de Em, G, C e D com som real.
 - Validar e calibrar o afinador em diferentes celulares e ambientes.
 - Refinar os limites de reconhecimento com os resultados do diagnóstico pessoal.
-- Transformar o reconhecimento em feedback de ritmo e acorde.
+- Validar o novo resumo de ritmo e acordes em uma sessão real no celular.
 - Adicionar novos padrões de batida de forma progressiva.
 - Expandir a jornada com novas etapas e exercícios.
 - Melhorar recompensas, combos, tentativas e desbloqueios.
