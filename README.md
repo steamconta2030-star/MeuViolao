@@ -186,6 +186,14 @@ Todo checkpoint deve passar no lint e no build antes de ser publicado.
 
 As migrações também devem ser aplicadas em um Supabase local vazio antes do próximo checkpoint de banco. Esse teste confirma que toda a estrutura pode ser reconstruída apenas pelos arquivos versionados.
 
+### Última validação local do banco
+
+- Validado em 29/08/2026 com Supabase CLI 2.116.0 e Docker Desktop.
+- As três migrações foram aplicadas com sucesso em um banco vazio.
+- `supabase migration list --local` confirmou o histórico completo.
+- `supabase db lint --local --level error` retornou `No schema errors found`.
+- O teste foi executado somente no ambiente local, sem vincular ou alterar o projeto de produção.
+
 ## Publicação
 
 A branch `main` está conectada à Vercel. Atualizações funcionais são agrupadas em checkpoints pequenos e reversíveis para reduzir deploys e facilitar rollback.
