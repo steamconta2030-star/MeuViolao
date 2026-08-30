@@ -65,6 +65,7 @@ O projeto já possui uma fundação funcional publicada e está na fase de exerc
 - Comparação do acorde tocado com o perfil acústico do próprio usuário durante os exercícios.
 - Durante os exercícios, cada batida usa cinco leituras do som sustentado, exige maioria consistente e informa explicitamente quando outro acorde é identificado.
 - Resumo ao final de cada rodada, separando cobertura das batidas e compatibilidade dos acordes.
+- Diagnóstico por acorde no resumo, com corretas por batidas captadas, acordes diferentes, sons incertos e análises pendentes.
 - Orientação curta e adaptada ao resultado, sem reprovar ou bloquear o iniciante.
 - Diagnóstico pessoal com três testes de Em, G, C e D, percentual de acerto e identificação de confusões.
 - Diagnóstico protegido por contagem regressiva, limiar de ruído e validação do som sustentado em várias leituras.
