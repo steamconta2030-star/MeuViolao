@@ -2,6 +2,7 @@ import { Check, Clock3, Heart, Mic, MicOff, Play, RotateCcw, Star, X } from 'luc
 import { useEffect, useRef, useState } from 'react'
 import { ChordDiagram } from './ChordDiagram'
 import { calibrationChords, compareWithCalibration, loadChordCalibration } from '../lib/chord-calibration'
+import { classifyChordOutcome, consumeChordAttack, resolveChordWindow } from '../lib/chord-window'
 
 const exercises = {
   'first-chords': {
@@ -360,41 +361,26 @@ export function ChordExercise({ userId, exerciseId, onClose, onComplete }: { use
           if (chordAnalysisFramesRef.current < chordAnalysisFrames) {
             chordAnalysisDueRef.current = now + chordAnalysisFrameInterval
           } else {
-            const activeAnalysis = activeChordAnalysisRef.current
+            const consumedAttack = consumeChordAttack(activeChordAnalysisRef.current)
+            activeChordAnalysisRef.current = consumedAttack.active
+            const activeAnalysis = consumedAttack.outcome
             const captured = chordAnalysisSamplesRef.current
-            const votes = calibrationChords.map((chord) => ({ chord, count: captured.filter((item) => item.identified === chord).length }))
-            let winner = votes[0]
-            for (let index = 1; index < votes.length; index += 1) {
-              if (votes[index].count > winner.count) winner = votes[index]
-            }
-            const winnerSamples = captured.filter((item) => item.identified === winner.chord)
-            const averageConfidence = winnerSamples.length
-              ? Math.round(winnerSamples.reduce((sum, item) => sum + item.confidence, 0) / winnerSamples.length)
-              : 0
-            const averageScores = calibrationChords.map((chord) => ({
-              chord,
-              confidence: Math.round(
-                captured.reduce((sum, item) => sum + (item.scores.find((score) => score.chord === chord)?.confidence ?? 0), 0)
-                / Math.max(1, captured.length),
-              ),
-            })).toSorted((left, right) => right.confidence - left.confidence)
-            const requiredVotes = Math.ceil(chordAnalysisFrames * 0.6)
-            const stable = captured.length >= requiredVotes
-              && winner.count >= requiredVotes
-              && (!calibrationProfile || averageConfidence >= 68)
-              && (!calibrationProfile || (averageScores[0].chord === winner.chord && averageScores[0].confidence - averageScores[1].confidence >= 1))
+            const outcome = resolveChordWindow(captured, chordAnalysisFrames, calibrationProfile)
+            const stable = outcome.kind === 'recognized'
+            const winner = outcome.chord
+            const averageConfidence = outcome.confidence
 
             chordAnalysisDueRef.current = 0
             chordAnalysisFramesRef.current = 0
             chordAnalysisSamplesRef.current = []
-            activeChordAnalysisRef.current = null
             if (activeAnalysis && activeAnalysis.generation === roundGenerationRef.current) {
+              const classification = classifyChordOutcome(outcome, activeAnalysis.target)
               setEmConfidence(stable ? averageConfidence : 0)
-              setIdentifiedChord(stable ? winner.chord : null)
-              if (!stable) {
+              setIdentifiedChord(winner)
+              if (classification === 'uncertain') {
                 updateChordStats(activeAnalysis.target, { pending: -1, uncertain: 1 })
                 setEmStatus('uncertain')
-              } else if (winner.chord === activeAnalysis.target) {
+              } else if (classification === 'matched') {
                 updateChordStats(activeAnalysis.target, { pending: -1, matched: 1 })
                 setEmStatus('matched')
                 emMatchesRef.current += 1
